@@ -14,7 +14,8 @@
   const SPR_OFF_X = 8, SPR_OFF_Y = 7;
 
   const GRAVITY = 0.5, MAX_FALL = 13, JUMP_V = -9.6;
-  const MOVE_SPEED = 2.6, ACCEL_GROUND = 0.55, ACCEL_AIR = 0.32, FRICTION = 0.6;
+  // Whole/binary-friendly numbers so steady walking moves exactly 3 px every step (no uneven pixel steps).
+  const MOVE_SPEED = 3, ACCEL_GROUND = 0.5, ACCEL_AIR = 0.25, FRICTION = 0.6;
   const REACH = 4.5 * TILE;
   const PUNCH_DELAY = 170;          // ms between punches while holding
 
@@ -145,7 +146,8 @@
   }
 
   // ---------- State ----------
-  const player = { x: 0, y: 0, vx: 0, vy: 0, onGround: false, facing: 1, animT: 0, coyote: 0, jumpBuf: 0 };
+  // px/py = position at the previous physics step, used to interpolate smoothly when drawing
+  const player = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, onGround: false, facing: 1, animT: 0, coyote: 0, jumpBuf: 0 };
   let inv = {};
   let selected = 0;           // index into PLACEABLE
   let placeMode = false;      // false = left click breaks, true = left click places
@@ -165,6 +167,7 @@
     hits.clear();
     player.x = spawnX * TILE + 5;
     player.y = (surf[spawnX] - 2) * TILE;
+    player.px = player.x; player.py = player.y;
     player.vx = player.vy = 0;
     buildHotbar();
     saveNow();
@@ -355,6 +358,7 @@
     const jumpHeld = keys.jump || touchJump;
     const dir = (right ? 1 : 0) - (left ? 1 : 0);
     const p = player;
+    p.px = p.x; p.py = p.y;
 
     if (dir !== 0) {
       p.facing = dir;
@@ -406,7 +410,7 @@
     }
 
     // walk animation clock
-    if (p.onGround && Math.abs(p.vx) > 0.3) p.animT += 0.14 * (Math.abs(p.vx) / MOVE_SPEED + 0.25);
+    if (p.onGround && Math.abs(p.vx) > 0.3) p.animT += 0.16 * (Math.abs(p.vx) / MOVE_SPEED * 0.75 + 0.25);
     else if (p.onGround) p.animT = 0;
   }
 
@@ -414,10 +418,19 @@
   let camX = 0, camY = 0;
   const WALK_SEQ = ['p_walk_l', 'p_stand', 'p_walk_r', 'p_stand'];
 
+  // Where the player is drawn this frame: whole pixels, interpolated between physics steps.
+  let drawX = 0, drawY = 0;
+  function updateRenderPos(alpha) {
+    drawX = Math.round(player.px + (player.x - player.px) * alpha);
+    drawY = Math.round(player.py + (player.y - player.py) * alpha);
+  }
+
   function updateCamera() {
     const worldPxW = WORLD_W * TILE, worldPxH = WORLD_H * TILE;
-    let cx = Math.round(player.x + PW / 2 - viewW / 2);
-    let cy = Math.round(player.y + PH / 2 - viewH / 2);
+    // Camera offset is built from the SAME rounded position the sprite uses, plus a whole-number
+    // constant, so the character stays locked to one screen spot and the world scrolls under it.
+    const cx = drawX + Math.round(PW / 2 - viewW / 2);
+    const cy = drawY + Math.round(PH / 2 - viewH / 2);
     camX = worldPxW <= viewW ? Math.round((worldPxW - viewW) / 2) : Math.max(0, Math.min(worldPxW - viewW, cx));
     camY = worldPxH <= viewH ? Math.round((worldPxH - viewH) / 2) : Math.max(0, Math.min(worldPxH - viewH, cy));
   }
@@ -481,8 +494,8 @@
 
   function drawPlayer() {
     const img = currentFrame();
-    const px = Math.round(player.x) - camX;
-    const py = Math.round(player.y) - camY;
+    const px = drawX - camX;
+    const py = drawY - camY;
     if (player.facing >= 0) {
       ctx.drawImage(img, px - SPR_OFF_X, py - SPR_OFF_Y);
     } else {
@@ -502,7 +515,8 @@
     ctx.strokeRect(sx + 0.5, sy + 0.5, TILE - 1, TILE - 1);
   }
 
-  function render(now) {
+  function render(now, alpha) {
+    updateRenderPos(alpha);
     updateCamera();
     drawSky();
     drawWorld(now);
@@ -519,7 +533,7 @@
     last = now;
     while (acc >= STEP) { stepPlayer(); acc -= STEP; }
     handleMouse(now);
-    render(now);
+    render(now, acc / STEP);
     requestAnimationFrame(frame);
   }
 
@@ -538,6 +552,7 @@
       selected = Math.max(0, Math.min(PLACEABLE.length - 1, s.selected | 0));
       player.x = s.px; player.y = s.py;
       if (!isFinite(player.x) || !isFinite(player.y)) { player.x = spawnX * TILE + 5; player.y = (surf[spawnX] - 2) * TILE; }
+      player.px = player.x; player.py = player.y;
       buildHotbar();
     } else {
       newWorld();
