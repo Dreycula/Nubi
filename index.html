@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Nubi</title>
+  <link rel="icon" href="assets/player/stand.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="loading">Loading…</div>
+
+  <div id="hud">
+    <div id="title">NUBI</div>
+    <div id="mode">Mode: <b id="modeLabel">Break</b></div>
+    <div id="help">
+      A/D or ←/→ move · W/Space/↑ jump · Click break · Right-click place<br>
+      1-6 or mouse wheel select block · Q toggle break/place
+    </div>
+    <button id="newWorld" type="button">New world</button>
+  </div>
+
+  <div id="hotbar"></div>
+
+  <div id="touch">
+    <div class="pad">
+      <button id="btnLeft" type="button">◀</button>
+      <button id="btnRight" type="button">▶</button>
+    </div>
+    <div class="pad">
+      <button id="btnMode" type="button">⛏</button>
+      <button id="btnJump" type="button">▲</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
