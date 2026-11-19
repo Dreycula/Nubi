@@ -352,6 +352,16 @@
     return world[idx(tx, ty)] !== 0;
   };
 
+  // true when the player's feet sit exactly on the top face of a solid block
+  function standingOnSolid(p) {
+    const feet = p.y + PH;
+    if (feet % TILE !== 0) return false;
+    const row = feet / TILE;
+    const x0 = Math.floor(p.x / TILE), x1 = Math.floor((p.x + PW - 1) / TILE);
+    for (let tx = x0; tx <= x1; tx++) if (solidAt(tx, row)) return true;
+    return false;
+  }
+
   function stepPlayer() {
     const left = keys.left || touchLeft;
     const right = keys.right || touchRight;
@@ -378,7 +388,10 @@
     // shorter hop when the jump key is released early
     if (!jumpHeld && p.vy < -3.5) p.vy = -3.5;
 
-    p.vy = Math.min(p.vy + GRAVITY, MAX_FALL);
+    // Standing on the ground: no gravity build-up (that made the player flick between
+    // "grounded" and "airborne" every couple of frames, showing the jump pose and a gap).
+    if (p.onGround && p.vy >= 0) p.vy = 0;
+    else p.vy = Math.min(p.vy + GRAVITY, MAX_FALL);
 
     // horizontal
     p.x += p.vx;
@@ -408,6 +421,8 @@
       else if (p.vy < 0) { p.y = (y0 + 1) * TILE; }
       p.vy = 0;
     }
+    // resting exactly on top of a solid block counts as grounded even when nothing was "hit" this step
+    if (!p.onGround && p.vy >= 0 && standingOnSolid(p)) { p.onGround = true; p.vy = 0; }
 
     // walk animation clock
     if (p.onGround && Math.abs(p.vx) > 0.3) p.animT += 0.16 * (Math.abs(p.vx) / MOVE_SPEED * 0.75 + 0.25);
