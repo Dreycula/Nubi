@@ -23,7 +23,8 @@ then visit http://localhost:8000
 | Break block | Left click (hold to keep punching) | Tap block in Break mode |
 | Place block | Right click | Tap empty space in Place mode |
 | Switch break/place mode | Q | ⛏ / ▣ button |
-| Select block | 1-6 or mouse wheel | Tap the hotbar |
+| Select block | 1-6 or click the hotbar | Tap the hotbar |
+| Zoom in / out | Mouse wheel (or trackpad pinch) | - |
 
 Blocks take several punches to break (a crack shows your progress), and broken blocks go into your hotbar. Your world, inventory and position are saved in the browser automatically. "New world" resets everything.
 

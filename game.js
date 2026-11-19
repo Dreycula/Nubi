@@ -3,7 +3,14 @@
 
   // ---------- Config ----------
   const TILE = 32;          // block size in pixels
-  const SCALE = 2;          // on-screen pixel scale (integer keeps pixel art crisp)
+  // Zoom = on-screen pixel scale. Whole numbers only, so the pixel art stays crisp. Mouse wheel changes it.
+  const ZOOM_LEVELS = [1, 2, 3, 4];
+  const ZOOM_KEY = 'nubi-zoom';
+  let SCALE = 2;
+  try {
+    const z = parseInt(localStorage.getItem(ZOOM_KEY), 10);
+    if (ZOOM_LEVELS.includes(z)) SCALE = z;
+  } catch (e) { /* ignore */ }
   const WORLD_W = 120;
   const WORLD_H = 80;
   const SAVE_KEY = 'nubi-world-v1';
@@ -235,10 +242,20 @@
   const stopPointer = () => { mouse.down = false; };
   canvas.addEventListener('pointerup', stopPointer);
   canvas.addEventListener('pointercancel', stopPointer);
+  // Mouse wheel / trackpad pinch = zoom (scroll up zooms in, scroll down zooms out)
+  let lastZoom = 0;
   window.addEventListener('wheel', e => {
-    const n = PLACEABLE.length;
-    selectSlot((selected + (e.deltaY > 0 ? 1 : -1) + n) % n);
-  }, { passive: true });
+    e.preventDefault();
+    const now = performance.now();
+    if (now - lastZoom < 120 || e.deltaY === 0) return;   // one step per wheel notch
+    lastZoom = now;
+    const i = ZOOM_LEVELS.indexOf(SCALE);
+    const next = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, i + (e.deltaY < 0 ? 1 : -1)));
+    if (ZOOM_LEVELS[next] === SCALE) return;
+    SCALE = ZOOM_LEVELS[next];
+    try { localStorage.setItem(ZOOM_KEY, String(SCALE)); } catch (_) { /* ignore */ }
+    resize();
+  }, { passive: false });
 
   function holdButton(id, setter) {
     const el = document.getElementById(id);
