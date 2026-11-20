@@ -12,6 +12,36 @@
 
   <div id="loading">Loading…</div>
 
+  <div id="auth" class="auth">
+    <form id="authForm" class="auth-card" novalidate>
+      <div class="auth-sprite" aria-hidden="true">
+        <img class="spr arm-back" src="assets/player/parts/arm.png" alt="">
+        <img class="spr body" src="assets/player/stand.png" alt="">
+        <img class="spr arm-front" src="assets/player/parts/arm.png" alt="">
+      </div>
+      <h1>NUBI</h1>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" id="tabLogin" class="auth-tab active" role="tab" aria-selected="true">Log in</button>
+        <button type="button" id="tabSignup" class="auth-tab" role="tab" aria-selected="false">Create account</button>
+      </div>
+
+      <label class="auth-field">Username
+        <input id="authUser" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="16">
+      </label>
+      <label class="auth-field">Password
+        <input id="authPass" type="password" autocomplete="current-password">
+      </label>
+      <label class="auth-field" id="confirmRow" hidden>Confirm password
+        <input id="authPass2" type="password" autocomplete="new-password">
+      </label>
+
+      <div id="authError" class="auth-error" role="alert"></div>
+      <button id="authSubmit" class="auth-submit" type="submit">Log in</button>
+      <p class="auth-note">Accounts are saved in this browser only.</p>
+    </form>
+  </div>
+
   <div id="hud">
     <div id="title">NUBI</div>
     <div id="mode">Mode: <b id="modeLabel">Break</b></div>
@@ -19,7 +49,12 @@
       A/D or ←/→ move · W/Space/↑ jump · Click break · Right-click place<br>
       1-6 or click the hotbar to select a block · Mouse wheel zoom · Q toggle break/place
     </div>
-    <button id="newWorld" type="button">New world</button>
+  </div>
+
+  <div id="hudRight">
+    <span id="who"></span>
+    <button id="newWorld" class="hud-btn" type="button">New world</button>
+    <button id="logout" class="hud-btn" type="button">Log out</button>
   </div>
 
   <div id="hotbar"></div>
@@ -35,6 +70,7 @@
     </div>
   </div>
 
+  <script src="auth.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

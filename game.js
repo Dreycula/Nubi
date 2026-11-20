@@ -13,7 +13,7 @@
   } catch (e) { /* ignore */ }
   const WORLD_W = 120;
   const WORLD_H = 80;
-  const SAVE_KEY = 'nubi-world-v1';
+  let SAVE_KEY = null;      // set after login: each account has its own saved world (see auth.js)
 
   // Sprite: 26x35 canvas, visible character is 20x32 starting at (3, 3). Feet sit on the bottom edge of the hitbox.
   const SPR_W = 26, SPR_H = 35;
@@ -138,6 +138,7 @@
     saveTimer = setTimeout(saveNow, 800);
   }
   function saveNow() {
+    if (!SAVE_KEY) return;                    // not logged in yet: nothing to save
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         w: WORLD_W, h: WORLD_H,
@@ -148,6 +149,7 @@
     } catch (e) { /* storage unavailable: game still works, it just won't persist */ }
   }
   function loadSave() {
+    if (!SAVE_KEY) return null;
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
@@ -213,7 +215,10 @@
     ArrowRight: 'right', d: 'right', D: 'right',
     ArrowUp: 'jump', w: 'jump', W: 'jump', ' ': 'jump'
   };
+  // Ignore game keys while the login screen is open or while typing in any text box.
+  const typing = e => document.body.classList.contains('auth-open') || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '');
   window.addEventListener('keydown', e => {
+    if (typing(e)) return;
     const k = KEYMAP[e.key];
     if (k) {
       if (k === 'jump' && !keys.jump) player.jumpBuf = 6;
@@ -226,7 +231,7 @@
   });
   window.addEventListener('keyup', e => {
     const k = KEYMAP[e.key];
-    if (k) keys[k] = false;
+    if (k) keys[k] = false;      // always release, even if a text box has focus now
   });
   window.addEventListener('blur', () => { keys.left = keys.right = keys.jump = false; mouse.down = false; });
 
@@ -255,6 +260,7 @@
   // Mouse wheel / trackpad pinch = zoom (scroll up zooms in, scroll down zooms out)
   let lastZoom = 0;
   window.addEventListener('wheel', e => {
+    if (document.body.classList.contains('auth-open')) return;   // let the login card scroll normally
     e.preventDefault();
     const now = performance.now();
     if (now - lastZoom < 120 || e.deltaY === 0) return;   // one step per wheel notch
@@ -627,8 +633,17 @@
   setInterval(() => { if (document.visibilityState === 'visible') saveNow(); }, 15000);
 
   // ---------- Start ----------
+  document.getElementById('logout').addEventListener('click', () => {
+    saveNow();
+    if (window.nubiAuth) window.nubiAuth.logout(); else location.reload();
+  });
+
   resize();
-  loadAll().then(() => {
+  // Wait for both the art and the login (auth.js resolves straight away if this browser is already signed in).
+  const loggedIn = window.nubiAuth ? window.nubiAuth.whenLoggedIn() : Promise.resolve({ name: 'Guest', saveKey: 'nubi-world-v1' });
+  Promise.all([loadAll(), loggedIn]).then(([, account]) => {
+    SAVE_KEY = account.saveKey;
+    document.getElementById('who').textContent = account.name;
     const g = generate();
     surf = g.surf; spawnX = g.spawnX;
     const s = loadSave();

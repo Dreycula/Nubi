@@ -6,6 +6,10 @@ A Growtopia / Pixel Worlds-inspired 2D block game that runs in the browser (plai
 
 Open `index.html` through any web server, or enable GitHub Pages (Settings → Pages → Deploy from branch → `main` / root) and open the link it gives you.
 
+You'll see a login screen first (`auth.js`). The first visit opens on **Create account**; after that it opens on **Log in**, and you stay signed in until you press **Log out**. Each account has its own saved world, and the single world saved before accounts existed goes to the first account you create.
+
+**Accounts live in the browser only.** There's no server, so an account made on one device or browser doesn't exist on another. Passwords are stored salted and hashed (never in plain text), but this is a convenience login, not real security. Accounts shared across devices need a backend such as Supabase or Firebase.
+
 Quick local server:
 
 ```
