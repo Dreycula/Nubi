@@ -31,7 +31,8 @@ Blocks take several punches to break (a crack shows your progress), and broken b
 ## Art
 
 - Everything uses a **32x32** tile size.
-- Player frames are in `assets/player/` (`stand`, `walk_l`, `walk_r`, `jump`, each 39x43, plus `player_sheet.png` with all four side by side).
+- The player is built from two of your own sprites in `assets/player/parts/`: `body.png` (26x35, no arms) and `arm.png` (5x10). The arm pixels are never edited, only placed at the shoulders and moved as one piece.
+- Player frames in `assets/player/` (`stand`, `walk_l`, `walk_r`, `jump`, each 26x35, plus `player_sheet.png` with all four side by side) are generated from those parts. To rebuild after changing a part: `python3 tools/build_player.py assets/player/parts/body.png assets/player/parts/arm.png assets/player shift 2`.
 - Block tiles are in `assets/tiles/` (`dirt`, `grass`, `stone`, `wood`, `brick`, `glass`, `bedrock`) and `crack_1-4` overlays. These are placeholders: replace a PNG with your own 32x32 version using the same file name and it shows up in the game.
 
 ## Files

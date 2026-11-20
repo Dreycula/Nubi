@@ -15,10 +15,10 @@
   const WORLD_H = 80;
   const SAVE_KEY = 'nubi-world-v1';
 
-  // Sprite: 39x43 canvas, visible character is 21x32 starting at (8, 6).
-  const SPR_W = 39, SPR_H = 43;
-  const PW = 21, PH = 31;           // player hitbox
-  const SPR_OFF_X = 8, SPR_OFF_Y = 7;
+  // Sprite: 26x35 canvas, visible character is 20x32 starting at (3, 3). Feet sit on the bottom edge of the hitbox.
+  const SPR_W = 26, SPR_H = 35;
+  const PW = 20, PH = 32;           // player hitbox
+  const SPR_OFF_X = 3, SPR_OFF_Y = 3;
 
   const GRAVITY = 0.5, MAX_FALL = 13, JUMP_V = -9.6;
   // Whole/binary-friendly numbers so steady walking moves exactly 3 px every step (no uneven pixel steps).
@@ -532,7 +532,7 @@
       ctx.drawImage(img, px - SPR_OFF_X, py - SPR_OFF_Y);
     } else {
       ctx.save();
-      ctx.translate(px + 29, py - SPR_OFF_Y);   // mirror around the hitbox
+      ctx.translate(px - SPR_OFF_X + SPR_W, py - SPR_OFF_Y);   // mirror: the character is centred in its frame, so it stays over the hitbox
       ctx.scale(-1, 1);
       ctx.drawImage(img, 0, 0);
       ctx.restore();
@@ -582,7 +582,7 @@
       world = s.world;
       inv = Object.assign(freshInventory(), s.inv || {});
       selected = Math.max(0, Math.min(PLACEABLE.length - 1, s.selected | 0));
-      player.x = s.px; player.y = s.py;
+      player.x = s.px; player.y = s.py - 4;   // the hitbox got 1px taller; start just above where you saved so you can't spawn inside a block
       if (!isFinite(player.x) || !isFinite(player.y)) { player.x = spawnX * TILE + 5; player.y = (surf[spawnX] - 2) * TILE; }
       player.px = player.x; player.py = player.y;
       buildHotbar();
