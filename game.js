@@ -457,7 +457,11 @@
     // Walking: a smooth pendulum swing locked to the leg steps. Jumping: both arms spread out. Idle: hang straight.
     let tl = 0, tr = 0;
     if (!p.onGround) { tl = ARM_JUMP; tr = -ARM_JUMP; }
-    else if (Math.abs(p.vx) > 0.3) { tl = tr = ARM_SWING * Math.cos(p.animT * Math.PI / 2); }
+    else if (Math.abs(p.vx) > 0.3) {
+      // the two arms swing in opposite directions: hands move apart, then back together
+      const s = ARM_SWING * Math.cos(p.animT * Math.PI / 2);
+      tl = s; tr = -s;
+    }
     p.armL += (tl - p.armL) * 0.35;
     p.armR += (tr - p.armR) * 0.35;
   }
@@ -552,14 +556,16 @@
       ctx.translate(px - SPR_OFF_X + SPR_W, py - SPR_OFF_Y);
       ctx.scale(-1, 1);
     }
-    ctx.drawImage(img, 0, 0);                       // body (legs animated), no arms
-    [[ARM_LEFT_X, player.armL], [ARM_RIGHT_X, player.armR]].forEach(([ax, deg]) => {
+    const drawArm = (ax, deg) => {
       ctx.save();
       ctx.translate(ax + ARM_PIVOT_X, ARM_Y + ARM_PIVOT_Y);
       ctx.rotate(deg * Math.PI / 180);
       ctx.drawImage(images.p_arm, -ARM_PIVOT_X, -ARM_PIVOT_Y);   // the untouched arm sprite
       ctx.restore();
-    });
+    };
+    drawArm(ARM_RIGHT_X, player.armR);              // far arm: behind the body, only sticks out past its edge
+    ctx.drawImage(img, 0, 0);                       // body (legs animated), no arms
+    drawArm(ARM_LEFT_X, player.armL);               // near arm: in front of the body
     ctx.restore();
   }
 
