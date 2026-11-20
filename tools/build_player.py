@@ -32,6 +32,8 @@ def frame(ll=False, rl=False, kl=0, kr=0, lift=1):
     if ll: f = lift_leg(f, LEFT_LEG, lift)
     if rl: f = lift_leg(f, RIGHT_LEG, lift)
     f = f.copy()
+    if MODE == 'none':          # body only: the game draws the arms live and rotates them
+        return f
     f.alpha_composite(place(LX, kl)); f.alpha_composite(place(RX, kr))
     return f
 

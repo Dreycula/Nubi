@@ -19,6 +19,10 @@
   const SPR_W = 26, SPR_H = 35;
   const PW = 20, PH = 32;           // player hitbox
   const SPR_OFF_X = 3, SPR_OFF_Y = 3;
+  // Arms: the 5x10 arm sprite is drawn on top of the body and rotated about its shoulder (top centre).
+  const ARM_LEFT_X = 3, ARM_RIGHT_X = 18, ARM_Y = 19;   // where each arm hangs on the 26x35 body
+  const ARM_PIVOT_X = 2.5, ARM_PIVOT_Y = 1.5;           // shoulder point inside the arm sprite
+  const ARM_SWING = 28, ARM_JUMP = 38;                  // max walking swing / jump spread, in degrees
 
   const GRAVITY = 0.5, MAX_FALL = 13, JUMP_V = -9.6;
   // Whole/binary-friendly numbers so steady walking moves exactly 3 px every step (no uneven pixel steps).
@@ -51,6 +55,7 @@
   function loadAll() {
     const jobs = [];
     ['stand', 'walk_l', 'walk_r', 'jump'].forEach(n => jobs.push(loadImage('p_' + n, 'assets/player/' + n + '.png')));
+    jobs.push(loadImage('p_arm', 'assets/player/parts/arm.png'));
     Object.values(BLOCKS).forEach(b => jobs.push(loadImage(b.img, 'assets/tiles/' + b.img + '.png')));
     for (let i = 1; i <= 4; i++) jobs.push(loadImage('crack' + i, 'assets/tiles/crack_' + i + '.png'));
     return Promise.all(jobs);
@@ -154,7 +159,7 @@
 
   // ---------- State ----------
   // px/py = position at the previous physics step, used to interpolate smoothly when drawing
-  const player = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, onGround: false, facing: 1, animT: 0, coyote: 0, jumpBuf: 0 };
+  const player = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, onGround: false, facing: 1, animT: 0, armL: 0, armR: 0, coyote: 0, jumpBuf: 0 };
   let inv = {};
   let selected = 0;           // index into PLACEABLE
   let placeMode = false;      // false = left click breaks, true = left click places
@@ -187,8 +192,11 @@
   function resize() {
     viewW = Math.ceil(window.innerWidth / SCALE);
     viewH = Math.ceil(window.innerHeight / SCALE);
-    canvas.width = viewW;
-    canvas.height = viewH;
+    // The canvas has one real pixel per screen pixel. All game drawing happens in "game pixels"
+    // (1 game pixel = SCALE screen pixels, set with setTransform every frame), so the world stays
+    // crisp, and rotated pieces like the arms are drawn at screen resolution instead of jagged.
+    canvas.width = viewW * SCALE;
+    canvas.height = viewH * SCALE;
     ctx.imageSmoothingEnabled = false;
   }
   window.addEventListener('resize', resize);
@@ -222,7 +230,7 @@
 
   function canvasPos(e) {
     const r = canvas.getBoundingClientRect();
-    return { x: (e.clientX - r.left) * (canvas.width / r.width), y: (e.clientY - r.top) * (canvas.height / r.height) };
+    return { x: (e.clientX - r.left) * (viewW / r.width), y: (e.clientY - r.top) * (viewH / r.height) };
   }
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('pointerdown', e => {
@@ -444,6 +452,14 @@
     // walk animation clock
     if (p.onGround && Math.abs(p.vx) > 0.3) p.animT += 0.16 * (Math.abs(p.vx) / MOVE_SPEED * 0.75 + 0.25);
     else if (p.onGround) p.animT = 0;
+
+    // Arm "bones": angle in degrees about the shoulder, positive = hand swings toward the character's left.
+    // Walking: a smooth pendulum swing locked to the leg steps. Jumping: both arms spread out. Idle: hang straight.
+    let tl = 0, tr = 0;
+    if (!p.onGround) { tl = ARM_JUMP; tr = -ARM_JUMP; }
+    else if (Math.abs(p.vx) > 0.3) { tl = tr = ARM_SWING * Math.cos(p.animT * Math.PI / 2); }
+    p.armL += (tl - p.armL) * 0.35;
+    p.armR += (tr - p.armR) * 0.35;
   }
 
   // ---------- Rendering ----------
@@ -528,15 +544,23 @@
     const img = currentFrame();
     const px = drawX - camX;
     const py = drawY - camY;
+    ctx.save();
     if (player.facing >= 0) {
-      ctx.drawImage(img, px - SPR_OFF_X, py - SPR_OFF_Y);
+      ctx.translate(px - SPR_OFF_X, py - SPR_OFF_Y);
     } else {
-      ctx.save();
-      ctx.translate(px - SPR_OFF_X + SPR_W, py - SPR_OFF_Y);   // mirror: the character is centred in its frame, so it stays over the hitbox
+      // mirror: the character is centred in its frame, so it stays over the hitbox
+      ctx.translate(px - SPR_OFF_X + SPR_W, py - SPR_OFF_Y);
       ctx.scale(-1, 1);
-      ctx.drawImage(img, 0, 0);
-      ctx.restore();
     }
+    ctx.drawImage(img, 0, 0);                       // body (legs animated), no arms
+    [[ARM_LEFT_X, player.armL], [ARM_RIGHT_X, player.armR]].forEach(([ax, deg]) => {
+      ctx.save();
+      ctx.translate(ax + ARM_PIVOT_X, ARM_Y + ARM_PIVOT_Y);
+      ctx.rotate(deg * Math.PI / 180);
+      ctx.drawImage(images.p_arm, -ARM_PIVOT_X, -ARM_PIVOT_Y);   // the untouched arm sprite
+      ctx.restore();
+    });
+    ctx.restore();
   }
 
   function drawCursor() {
@@ -548,6 +572,8 @@
   }
 
   function render(now, alpha) {
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+    ctx.imageSmoothingEnabled = false;
     updateRenderPos(alpha);
     updateCamera();
     drawSky();
