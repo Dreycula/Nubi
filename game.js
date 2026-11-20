@@ -56,6 +56,8 @@
     const jobs = [];
     ['stand', 'walk_l', 'walk_r', 'jump'].forEach(n => jobs.push(loadImage('p_' + n, 'assets/player/' + n + '.png')));
     jobs.push(loadImage('p_arm', 'assets/player/parts/arm.png'));
+    jobs.push(loadImage('p_blink_half', 'assets/player/blink_half.png'));
+    jobs.push(loadImage('p_blink_closed', 'assets/player/blink_closed.png'));
     Object.values(BLOCKS).forEach(b => jobs.push(loadImage(b.img, 'assets/tiles/' + b.img + '.png')));
     for (let i = 1; i <= 4; i++) jobs.push(loadImage('crack' + i, 'assets/tiles/crack_' + i + '.png'));
     return Promise.all(jobs);
@@ -544,7 +546,25 @@
     return images.p_stand;
   }
 
-  function drawPlayer() {
+  // Blinking: every few seconds the eyes go half-closed, closed, half-closed (~190 ms). Sometimes it's a quick double blink.
+  let blinkStart = null, nextBlink = 0, blinkAgain = false;
+  function blinkOverlay(now) {
+    if (!nextBlink) nextBlink = now + 1500 + Math.random() * 1500;      // first blink comes soon after load
+    if (blinkStart === null) {
+      if (now < nextBlink) return null;
+      blinkStart = now;
+    }
+    const t = now - blinkStart;
+    if (t < 55) return images.p_blink_half;
+    if (t < 135) return images.p_blink_closed;
+    if (t < 190) return images.p_blink_half;
+    blinkStart = null;
+    if (!blinkAgain && Math.random() < 0.18) { blinkAgain = true; nextBlink = now + 110; }   // double blink
+    else { blinkAgain = false; nextBlink = now + 2200 + Math.random() * 3300; }
+    return null;
+  }
+
+  function drawPlayer(now) {
     const img = currentFrame();
     const px = drawX - camX;
     const py = drawY - camY;
@@ -565,6 +585,8 @@
     };
     drawArm(ARM_RIGHT_X, player.armR);              // far arm: behind the body, only sticks out past its edge
     ctx.drawImage(img, 0, 0);                       // body (legs animated), no arms
+    const lids = blinkOverlay(now);
+    if (lids) ctx.drawImage(lids, 0, 0);            // eyes closing, drawn over the face only
     drawArm(ARM_LEFT_X, player.armL);               // near arm: in front of the body
     ctx.restore();
   }
@@ -584,7 +606,7 @@
     updateCamera();
     drawSky();
     drawWorld(now);
-    drawPlayer();
+    drawPlayer(now);
     drawCursor();
   }
 

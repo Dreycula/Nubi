@@ -49,3 +49,25 @@ for n in order: frames[n].save(f'{OUT}/{n}.png')
 sheet = Image.new('RGBA', (W*4, H), CLEAR)
 for i, n in enumerate(order): sheet.paste(frames[n], (i*W, 0))
 sheet.save(f'{OUT}/player_sheet.png')
+
+# ---- blink overlays (transparent 26x35 images holding only the changed eye pixels, built from the body's own colours) ----
+LID   = body.getpixel((8, 7))     # the light lid colour already used above the eyes
+LINE  = body.getpixel((3 + 1, 9)) # a mid skin tone for the closed-eye line
+SKIN  = body.getpixel((7, 9))     # plain face skin
+EYES  = [range(8, 14), range(16, 22)]
+
+def blink(stage):
+    o = Image.new('RGBA', (W, H), CLEAR)
+    for xs in EYES:
+        for x in xs:
+            o.putpixel((x, 9), LID)                      # lid comes down over the top of the eyeball
+            if stage == 'closed':
+                o.putpixel((x, 10), LINE)                # closed eye = thin line
+                o.putpixel((x, 11), SKIN)
+    if stage == 'closed':                                # row 11 of the eyeball is only 4 wide; clear the two edge pixels back to nothing
+        for x in (8, 13, 16, 21):
+            o.putpixel((x, 11), CLEAR)
+    return o
+
+blink('half').save(f'{OUT}/blink_half.png')
+blink('closed').save(f'{OUT}/blink_closed.png')

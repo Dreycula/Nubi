@@ -33,6 +33,7 @@ Blocks take several punches to break (a crack shows your progress), and broken b
 - Everything uses a **32x32** tile size.
 - The player is built from two of your own sprites in `assets/player/parts/`: `body.png` (26x35, no arms) and `arm.png` (5x10).
 - The arms work like bones: the game draws the untouched `arm.png` at each shoulder and rotates it about the shoulder while walking (a smooth pendulum swing locked to the leg steps) and jumping (arms spread). The arm's pixels are never edited. Swing size is `ARM_SWING` / `ARM_JUMP` at the top of `game.js`.
+- The character blinks every few seconds (sometimes a quick double blink) using `blink_half.png` and `blink_closed.png`, small overlays built from the body's own eye colors.
 - Body-only frames in `assets/player/` (`stand`, `walk_l`, `walk_r`, `jump`, each 26x35, plus `player_sheet.png`) animate the legs from `body.png`. To rebuild after changing the body: `python3 tools/build_player.py assets/player/parts/body.png assets/player/parts/arm.png assets/player none 0`.
 - Block tiles are in `assets/tiles/` (`dirt`, `grass`, `stone`, `wood`, `brick`, `glass`, `bedrock`) and `crack_1-4` overlays. These are placeholders: replace a PNG with your own 32x32 version using the same file name and it shows up in the game.
 
