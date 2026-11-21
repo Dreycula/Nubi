@@ -16,6 +16,65 @@
   let SAVE_KEY = null;      // set after login: each account has its own saved world (see auth.js)
   let playerName = '';      // the logged-in username, drawn above the character
 
+  // ---- country flag on the name tag: detected automatically ----
+  // 1) a quick guess from the browser's time zone / language (instant, works offline),
+  // 2) then the real country from the visitor's IP (api.country.is), cached in the browser.
+  // The flag picture comes from flagcdn.com; if it can't load, a small country-code badge is drawn instead.
+  const TZ_COUNTRY = {
+    'Asia/Shanghai': 'CN', 'Asia/Urumqi': 'CN', 'Asia/Hong_Kong': 'HK', 'Asia/Macau': 'MO', 'Asia/Taipei': 'TW',
+    'Asia/Tokyo': 'JP', 'Asia/Seoul': 'KR', 'Asia/Jakarta': 'ID', 'Asia/Makassar': 'ID', 'Asia/Jayapura': 'ID',
+    'Asia/Pontianak': 'ID', 'Asia/Manila': 'PH', 'Asia/Singapore': 'SG', 'Asia/Kuala_Lumpur': 'MY',
+    'Asia/Bangkok': 'TH', 'Asia/Ho_Chi_Minh': 'VN', 'Asia/Saigon': 'VN', 'Asia/Kolkata': 'IN', 'Asia/Calcutta': 'IN',
+    'Asia/Karachi': 'PK', 'Asia/Dhaka': 'BD', 'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA', 'Asia/Tehran': 'IR',
+    'Asia/Jerusalem': 'IL', 'Europe/Istanbul': 'TR', 'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Paris': 'FR',
+    'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES', 'Europe/Rome': 'IT', 'Europe/Amsterdam': 'NL', 'Europe/Brussels': 'BE',
+    'Europe/Zurich': 'CH', 'Europe/Vienna': 'AT', 'Europe/Stockholm': 'SE', 'Europe/Oslo': 'NO', 'Europe/Copenhagen': 'DK',
+    'Europe/Helsinki': 'FI', 'Europe/Warsaw': 'PL', 'Europe/Prague': 'CZ', 'Europe/Lisbon': 'PT', 'Europe/Athens': 'GR',
+    'Europe/Kiev': 'UA', 'Europe/Kyiv': 'UA', 'Europe/Moscow': 'RU', 'Europe/Bucharest': 'RO', 'Europe/Budapest': 'HU',
+    'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US',
+    'America/Phoenix': 'US', 'America/Anchorage': 'US', 'Pacific/Honolulu': 'US', 'America/Toronto': 'CA',
+    'America/Vancouver': 'CA', 'America/Mexico_City': 'MX', 'America/Sao_Paulo': 'BR', 'America/Argentina/Buenos_Aires': 'AR',
+    'America/Bogota': 'CO', 'America/Santiago': 'CL', 'America/Lima': 'PE', 'Africa/Cairo': 'EG', 'Africa/Lagos': 'NG',
+    'Africa/Johannesburg': 'ZA', 'Africa/Nairobi': 'KE', 'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU',
+    'Australia/Brisbane': 'AU', 'Australia/Perth': 'AU', 'Pacific/Auckland': 'NZ'
+  };
+  const flagImgs = {};
+  let countryCode = null;
+  function guessCountry() {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (TZ_COUNTRY[tz]) return TZ_COUNTRY[tz];
+    } catch (e) {}
+    const m = /[-_]([A-Za-z]{2})\b/.exec(navigator.language || '');
+    return m ? m[1].toUpperCase() : null;
+  }
+  function setCountry(c) {
+    if (c && /^[A-Z]{2}$/.test(c)) countryCode = c;
+  }
+  function detectCountry() {
+    let cached = null;
+    try { cached = localStorage.getItem('nubi-country'); } catch (e) {}
+    setCountry(cached || guessCountry());
+    if (cached) return;
+    try {
+      fetch('https://api.country.is/', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => { setCountry(j && j.country); try { if (j && j.country) localStorage.setItem('nubi-country', j.country); } catch (e) {} })
+        .catch(() => {});
+    } catch (e) {}
+  }
+  function flagImage(code) {
+    if (!code) return null;
+    let f = flagImgs[code];
+    if (!f) {
+      f = flagImgs[code] = { img: new Image(), ok: false, bad: false };
+      f.img.onload = () => { f.ok = true; };
+      f.img.onerror = () => { f.bad = true; };
+      f.img.src = 'https://flagcdn.com/w80/' + code.toLowerCase() + '.png';
+    }
+    return f;
+  }
+
   // Sprite: 26x35 canvas, visible character is 20x32 starting at (3, 3). Feet sit on the bottom edge of the hitbox.
   const SPR_W = 26, SPR_H = 35;
   const PW = 20, PH = 32;           // player hitbox
@@ -610,7 +669,7 @@
     ctx.font = 'bold ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
     ctx.textBaseline = 'middle';
     const padX = Math.round(size * 0.55), h = Math.round(size * 1.55);
-    const flagW = Math.round(size * 1.1), flagH = Math.round(size * 0.75), gap = Math.round(size * 0.4);
+    const flagW = countryCode ? Math.round(size * 1.1) : 0, flagH = Math.round(size * 0.75), gap = countryCode ? Math.round(size * 0.4) : 0;
     const tw = Math.ceil(ctx.measureText(playerName).width);
     const w = padX + flagW + gap + tw + padX;
     const x = Math.round(cx - w / 2), y = bottom - h;
@@ -618,9 +677,20 @@
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, h / 2); else ctx.rect(x, y, w, h);
     ctx.fill();
-    const fx = x + padX, fy = Math.round(y + (h - flagH) / 2);   // small flag badge (red over white)
-    ctx.fillStyle = '#e8312f'; ctx.fillRect(fx, fy, flagW, Math.ceil(flagH / 2));
-    ctx.fillStyle = '#fff';    ctx.fillRect(fx, fy + Math.ceil(flagH / 2), flagW, Math.floor(flagH / 2));
+    const fx = x + padX, fy = Math.round(y + (h - flagH) / 2);
+    const fl = flagImage(countryCode);
+    if (fl && fl.ok) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(fl.img, fx, fy, flagW, flagH);
+    } else if (countryCode) {                                  // fallback: small country-code badge
+      ctx.fillStyle = 'rgba(255,255,255,.2)';
+      ctx.fillRect(fx, fy, flagW, flagH);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold ' + Math.round(size * 0.55) + 'px "Trebuchet MS", Verdana, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(countryCode, fx + flagW / 2, fy + flagH / 2 + 1);
+      ctx.font = 'bold ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
+    }
     ctx.textAlign = 'left';
     ctx.fillStyle = '#fff';
     ctx.fillText(playerName, fx + flagW + gap, y + h / 2 + 1);
@@ -675,6 +745,7 @@
   Promise.all([loadAll(), loggedIn]).then(([, account]) => {
     SAVE_KEY = account.saveKey;
     playerName = account.name;
+    detectCountry();
     document.getElementById('who').textContent = account.name;
     const g = generate();
     surf = g.surf; spawnX = g.spawnX;
