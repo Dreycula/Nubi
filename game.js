@@ -14,6 +14,7 @@
   const WORLD_W = 120;
   const WORLD_H = 80;
   let SAVE_KEY = null;      // set after login: each account has its own saved world (see auth.js)
+  let playerName = '';      // the logged-in username, drawn above the character
 
   // Sprite: 26x35 canvas, visible character is 20x32 starting at (3, 3). Feet sit on the bottom edge of the hitbox.
   const SPR_W = 26, SPR_H = 35;
@@ -597,6 +598,27 @@
     ctx.restore();
   }
 
+  // The logged-in username floats above the character's head. Drawn in screen pixels (not scaled game pixels)
+  // so the text stays sharp at every zoom level; the size grows a little with the zoom.
+  function drawName() {
+    if (!playerName) return;
+    const size = Math.max(12, 5 * SCALE + 4);
+    const cx = Math.round((drawX + PW / 2 - camX) * SCALE);
+    const base = Math.round((drawY - camY - 5) * SCALE);        // 5 game pixels above the top of the head
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = 'bold ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(3, Math.round(size / 4));
+    ctx.strokeStyle = 'rgba(10, 14, 30, .85)';                  // dark outline so it reads on sky, dirt or caves
+    ctx.strokeText(playerName, cx, base);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(playerName, cx, base);
+    ctx.restore();
+  }
+
   function drawCursor() {
     const t = targetTile();
     const sx = t.tx * TILE - camX, sy = t.ty * TILE - camY;
@@ -613,6 +635,7 @@
     drawSky();
     drawWorld(now);
     drawPlayer(now);
+    drawName();
     drawCursor();
   }
 
@@ -643,6 +666,7 @@
   const loggedIn = window.nubiAuth ? window.nubiAuth.whenLoggedIn() : Promise.resolve({ name: 'Guest', saveKey: 'nubi-world-v1' });
   Promise.all([loadAll(), loggedIn]).then(([, account]) => {
     SAVE_KEY = account.saveKey;
+    playerName = account.name;
     document.getElementById('who').textContent = account.name;
     const g = generate();
     surf = g.surf; spawnX = g.spawnX;
