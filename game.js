@@ -424,9 +424,12 @@
     });
     if (typeof refreshInventory === 'function') refreshInventory();
   }
+  let reachUntil = 0;         // the reach outline is shown until this time (and while the inventory is open)
+  function showReach() { reachUntil = performance.now() + 3000; }
   function selectSlot(i) {
     if (i < 0 || i >= PLACEABLE.length) return;
     selected = i;
+    showReach();
     refreshHotbar();
     saveSoon();
   }
@@ -915,6 +918,7 @@
     drawSky();
     drawWorld(now);
     drawDrops(now);
+    drawReach(now);
     drawPlayer(now);
     drawName();
     drawBubble(now);
@@ -988,6 +992,7 @@
         cell.addEventListener('click', () => {
           invSel = id;
           const pi = PLACEABLE.indexOf(id);
+          showReach();
           if (pi >= 0) { selected = pi; saveSoon(); }
           refreshHotbar();
         });
@@ -1043,6 +1048,31 @@
     const hitsTxt = b.hits === Infinity ? 'Cannot be broken.' : 'Takes ' + b.hits + ' punches to break.';
     showDialog(b.name, hitsTxt + ' You have ' + inv[invSel] + '. Place it with right-click (or Place mode).', false, 'OK', null);
   });
+
+  // ---- reach outline: the area around you where blocks can be broken and placed ----
+  function drawReach(now) {
+    if (!invOpen && now > reachUntil) return;
+    const fade = invOpen ? 1 : Math.min(1, (reachUntil - now) / 500);
+    const c = playerCenter();
+    const cx0 = Math.floor(c.x / TILE), cy0 = Math.floor(c.y / TILE), r = Math.ceil(REACH / TILE) + 1;
+    const inReach = (tx, ty) => Math.hypot(tx * TILE + TILE / 2 - c.x, ty * TILE + TILE / 2 - c.y) <= REACH;
+    ctx.save();
+    ctx.globalAlpha = fade;
+    for (let ty = cy0 - r; ty <= cy0 + r; ty++) {
+      for (let tx = cx0 - r; tx <= cx0 + r; tx++) {
+        if (!inReach(tx, ty)) continue;
+        const x = tx * TILE - camX, y = ty * TILE - camY;
+        ctx.fillStyle = 'rgba(255, 255, 255, .10)';
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = 'rgba(255, 255, 255, .95)';                 // 1px edge wherever the next tile is out of reach
+        if (!inReach(tx, ty - 1)) ctx.fillRect(x, y, TILE, 1);
+        if (!inReach(tx, ty + 1)) ctx.fillRect(x, y + TILE - 1, TILE, 1);
+        if (!inReach(tx - 1, ty)) ctx.fillRect(x, y, 1, TILE);
+        if (!inReach(tx + 1, ty)) ctx.fillRect(x + TILE - 1, y, 1, TILE);
+      }
+    }
+    ctx.restore();
+  }
 
   // ---- items lying in the world ----
   const DROP_SIZE = 16;
