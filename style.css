@@ -169,7 +169,7 @@ html, body {
 body.auth-open { touch-action: auto; }   /* lets the login card scroll on small phones */
 
 /* nothing from the game shows while the login screen is open */
-body.auth-open #hud, body.auth-open #hudRight, body.auth-open #hotbar, body.auth-open #touch { display: none !important; }
+body.auth-open #hud, body.auth-open #hudRight, body.auth-open #hotbar, body.auth-open #touch, body.auth-open #chat { display: none !important; }
 
 #hotbar {
   position: fixed;
@@ -239,3 +239,54 @@ body.auth-open #hud, body.auth-open #hudRight, body.auth-open #hotbar, body.auth
   .slot { width: 40px; height: 40px; }
   #hotbar { gap: 4px; padding: 4px; }
 }
+
+/* ---------- Chat ---------- */
+#chat {
+  position: fixed;
+  left: 10px;
+  bottom: 12px;
+  width: min(300px, calc(50vw - 175px));
+  min-width: 200px;
+  font-size: 13px;
+  line-height: 1.35;
+  z-index: 5;
+}
+#chatLog {
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  color: #fff;
+  background: rgba(20, 24, 40, .55);
+  border-radius: 6px;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, .6);
+  word-break: break-word;
+  opacity: 0;
+  transition: opacity .3s;
+  pointer-events: none;
+  scrollbar-width: thin;
+}
+#chatLog:empty { display: none; }
+#chat.recent #chatLog, #chat.open #chatLog { opacity: 1; }
+#chat.open #chatLog { pointer-events: auto; }
+.chat-line b { color: #ffd84a; }
+#chatInput {
+  display: none;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 16px;
+  color: #fff;
+  background: rgba(20, 24, 40, .8);
+  border: 2px solid #ffd84a;
+  border-radius: 6px;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#chat.open #chatInput { display: block; }
+#chatHint { font-size: 11px; opacity: .75; text-shadow: 1px 1px 0 rgba(0, 0, 0, .6); }
+#chat.open #chatHint { display: none; }
+@media (pointer: coarse) { #chatHint { display: none; } }
+@media (max-width: 760px) { #chat { bottom: 74px; width: min(300px, calc(100vw - 20px)); } }
+@media (pointer: coarse) { #chat { bottom: 150px; } }

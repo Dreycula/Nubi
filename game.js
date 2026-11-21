@@ -659,41 +659,144 @@
 
   // The logged-in username floats above the character's head. Drawn in screen pixels (not scaled game pixels)
   // so the text stays sharp at every zoom level; the size grows a little with the zoom.
+  let nameTopY = 0;         // screen y of the top of the name tag (the chat bubble sits above it)
   function drawName() {
     if (!playerName) return;
     const size = Math.max(11, 4 * SCALE + 3);
     const cx = Math.round((drawX + PW / 2 - camX) * SCALE);
-    const bottom = Math.round((drawY - camY - 2) * SCALE);   // pill sits just above the top of the head
+    const mid = Math.round((drawY - camY - 2) * SCALE) - Math.round(size * 0.8);   // just above the top of the head
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.font = 'bold ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
     ctx.textBaseline = 'middle';
-    const padX = Math.round(size * 0.55), h = Math.round(size * 1.55);
-    const flagW = countryCode ? Math.round(size * 1.1) : 0, flagH = Math.round(size * 0.75), gap = countryCode ? Math.round(size * 0.4) : 0;
+    ctx.textAlign = 'left';
+    ctx.lineJoin = 'round';
+    const flagW = countryCode ? Math.round(size * 1.1) : 0, flagH = Math.round(size * 0.75);
+    const gap = countryCode ? Math.round(size * 0.4) : 0;
     const tw = Math.ceil(ctx.measureText(playerName).width);
-    const w = padX + flagW + gap + tw + padX;
-    const x = Math.round(cx - w / 2), y = bottom - h;
-    ctx.fillStyle = 'rgba(10, 14, 30, .72)';                  // dark rounded pill
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, w, h, h / 2); else ctx.rect(x, y, w, h);
-    ctx.fill();
-    const fx = x + padX, fy = Math.round(y + (h - flagH) / 2);
+    const x = Math.round(cx - (flagW + gap + tw) / 2);
+    nameTopY = mid - Math.round(size * 0.8);
     const fl = flagImage(countryCode);
+    const fy = Math.round(mid - flagH / 2);
     if (fl && fl.ok) {
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(fl.img, fx, fy, flagW, flagH);
-    } else if (countryCode) {                                  // fallback: small country-code badge
-      ctx.fillStyle = 'rgba(255,255,255,.2)';
-      ctx.fillRect(fx, fy, flagW, flagH);
+      ctx.fillStyle = 'rgba(10,14,30,.85)';
+      ctx.fillRect(x - 1, fy - 1, flagW + 2, flagH + 2);        // thin dark edge so the flag reads on any sky
+      ctx.drawImage(fl.img, x, fy, flagW, flagH);
+    } else if (countryCode) {                                    // fallback: small country-code badge
+      ctx.fillStyle = 'rgba(10,14,30,.7)';
+      ctx.fillRect(x, fy, flagW, flagH);
       ctx.fillStyle = '#fff';
       ctx.font = 'bold ' + Math.round(size * 0.55) + 'px "Trebuchet MS", Verdana, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(countryCode, fx + flagW / 2, fy + flagH / 2 + 1);
+      ctx.fillText(countryCode, x + flagW / 2, mid + 1);
       ctx.font = 'bold ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
+      ctx.textAlign = 'left';
     }
-    ctx.textAlign = 'left';
+    const tx = x + flagW + gap;
+    ctx.lineWidth = Math.max(3, Math.round(size / 4));
+    ctx.strokeStyle = 'rgba(10, 14, 30, .85)';
+    ctx.strokeText(playerName, tx, mid + 1);
     ctx.fillStyle = '#fff';
-    ctx.fillText(playerName, fx + flagW + gap, y + h / 2 + 1);
+    ctx.fillText(playerName, tx, mid + 1);
+    ctx.restore();
+  }
+
+  // ---------- Chat: log box + speech bubble over the head ----------
+  // Chat is local for now (there is no server yet). Once multiplayer exists, messages from other players go
+  // through addChat() the same way.
+  const chatEl = document.getElementById('chat');
+  const chatLog = document.getElementById('chatLog');
+  const chatInput = document.getElementById('chatInput');
+  const BUBBLE_MS = 6000;
+  let bubble = null;        // { text, t }
+  function addChat(name, text) {
+    const line = document.createElement('div');
+    line.className = 'chat-line';
+    const who = document.createElement('b');
+    who.textContent = name + ': ';
+    line.appendChild(who);
+    line.appendChild(document.createTextNode(text));
+    chatLog.appendChild(line);
+    while (chatLog.children.length > 60) chatLog.removeChild(chatLog.firstChild);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    line.dataset.t = String(performance.now());
+    chatEl.classList.add('recent');
+    clearTimeout(addChat.timer);
+    addChat.timer = setTimeout(() => { if (document.activeElement !== chatInput) chatEl.classList.remove('recent'); }, 12000);
+  }
+  function openChat() {
+    keys.left = keys.right = keys.jump = false;
+    chatEl.classList.add('open');
+    chatInput.focus();
+  }
+  function closeChat() {
+    chatInput.blur();
+    chatEl.classList.remove('open');
+  }
+  chatInput.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { chatInput.value = ''; closeChat(); }
+    else if (e.key === 'Enter') {
+      const text = chatInput.value.trim().replace(/\s+/g, ' ');
+      chatInput.value = '';
+      if (text) { addChat(playerName, text); bubble = { text, t: performance.now() }; }
+      closeChat();
+    }
+  });
+  chatInput.addEventListener('blur', () => chatEl.classList.remove('open'));
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !typing(e) && playerName) { e.preventDefault(); openChat(); }
+  });
+  canvas.addEventListener('pointerdown', () => { if (document.activeElement === chatInput) closeChat(); });
+  const chatBtn = document.getElementById('btnChat');
+  if (chatBtn) chatBtn.addEventListener('click', () => { if (chatEl.classList.contains('open')) closeChat(); else openChat(); });
+
+  function drawBubble(now) {
+    if (!bubble) return;
+    const age = now - bubble.t;
+    if (age > BUBBLE_MS) { bubble = null; return; }
+    const size = Math.max(11, 4 * SCALE + 3);
+    const cx = Math.round((drawX + PW / 2 - camX) * SCALE);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = '600 ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    // word wrap to a fixed width
+    const maxW = Math.round(size * 13), lines = [];
+    let cur = '';
+    for (const word of bubble.text.split(' ')) {
+      let w = word;
+      while (ctx.measureText(w).width > maxW) {                  // a single very long word: split it
+        let i = w.length - 1;
+        while (i > 1 && ctx.measureText(w.slice(0, i)).width > maxW) i--;
+        if (cur) { lines.push(cur); cur = ''; }
+        lines.push(w.slice(0, i)); w = w.slice(i);
+      }
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    const lh = Math.round(size * 1.3), padX = Math.round(size * 0.7), padY = Math.round(size * 0.5);
+    const tw = Math.max(...lines.map(l => Math.ceil(ctx.measureText(l).width)));
+    const w = tw + padX * 2, h = lines.length * lh + padY * 2;
+    const tail = Math.round(size * 0.5);
+    const bottom = (nameTopY || Math.round((drawY - camY - 2) * SCALE)) - Math.round(size * 0.35) - tail;
+    const x = Math.round(cx - w / 2), y = bottom - h;
+    ctx.globalAlpha = age > BUBBLE_MS - 500 ? Math.max(0, (BUBBLE_MS - age) / 500) : 1;   // fade out at the end
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(10, 14, 30, .85)';
+    ctx.lineWidth = Math.max(2, Math.round(SCALE * 0.8));
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.round(size * 0.6)); else ctx.rect(x, y, w, h);
+    ctx.moveTo(cx - tail, bottom); ctx.lineTo(cx, bottom + tail); ctx.lineTo(cx + tail, bottom);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff';                                       // hide the outline where the tail joins the box
+    ctx.fillRect(cx - tail + 1, bottom - 1, tail * 2 - 1, ctx.lineWidth + 1);
+    ctx.fillStyle = '#16192b';
+    lines.forEach((l, i) => ctx.fillText(l, x + padX, y + padY + lh * i + lh / 2));
     ctx.restore();
   }
 
@@ -714,6 +817,7 @@
     drawWorld(now);
     drawPlayer(now);
     drawName();
+    drawBubble(now);
     drawCursor();
   }
 

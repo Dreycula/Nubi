@@ -47,7 +47,7 @@
     <div id="mode">Mode: <b id="modeLabel">Break</b></div>
     <div id="help">
       A/D or ←/→ move · W/Space/↑ jump · Click break · Right-click place<br>
-      1-6 or click the hotbar to select a block · Mouse wheel zoom · Q toggle break/place
+      1-6 or click the hotbar to select a block · Mouse wheel zoom · Q toggle break/place · Enter chat
     </div>
   </div>
 
@@ -55,6 +55,12 @@
     <span id="who"></span>
     <button id="newWorld" class="hud-btn" type="button">New world</button>
     <button id="logout" class="hud-btn" type="button">Log out</button>
+  </div>
+
+  <div id="chat">
+    <div id="chatLog" aria-live="polite"></div>
+    <input id="chatInput" type="text" maxlength="80" placeholder="Say something…" autocomplete="off" spellcheck="false" enterkeyhint="send">
+    <div id="chatHint">Press Enter to chat</div>
   </div>
 
   <div id="hotbar"></div>
@@ -65,6 +71,7 @@
       <button id="btnRight" type="button">▶</button>
     </div>
     <div class="pad">
+      <button id="btnChat" type="button">💬</button>
       <button id="btnMode" type="button">⛏</button>
       <button id="btnJump" type="button">▲</button>
     </div>
