@@ -76,12 +76,13 @@
   }
 
   // Sprite: 26x35 canvas, visible character is 20x32 starting at (3, 3). Feet sit on the bottom edge of the hitbox.
-  const SPR_W = 26, SPR_H = 35;
+  const SPR_W = 26, SPR_H = 38;
   const PW = 20, PH = 32;           // player hitbox
-  const SPR_OFF_X = 3, SPR_OFF_Y = 3;
+  const SPR_OFF_X = 3, SPR_OFF_Y = 6;   // the hitbox (20x32) sits on the feet; the big head sticks up 3px above it
+  const HEAD_TOP_ROW = 3;              // first row of the head in the sprite (the name tag and bubbles sit above it)
   // Arms: the 5x10 arm sprite is drawn on top of the body and rotated about its shoulder (top centre).
-  const ARM_LEFT_X = 3, ARM_RIGHT_X = 18, ARM_Y = 19;   // where each arm hangs on the 26x35 body
-  const ARM_PIVOT_X = 2.5, ARM_PIVOT_Y = 1.5;           // shoulder point inside the arm sprite
+  const ARM_LEFT_X = 2, ARM_RIGHT_X = 18, ARM_Y = 22;   // where each arm hangs on the 26x38 body
+  const ARM_PIVOT_X = 3, ARM_PIVOT_Y = 1.5;           // shoulder point inside the arm sprite
   const ARM_SWING = 28, ARM_JUMP = 38;                  // max walking swing / jump spread, in degrees
 
   const GRAVITY = 0.5, MAX_FALL = 13, JUMP_V = -9.6;
@@ -115,7 +116,8 @@
   function loadAll() {
     const jobs = [];
     ['stand', 'walk_l', 'walk_r', 'jump'].forEach(n => jobs.push(loadImage('p_' + n, 'assets/player/' + n + '.png')));
-    jobs.push(loadImage('p_arm', 'assets/player/parts/arm.png'));
+    jobs.push(loadImage('p_arm_near', 'assets/player/parts/arm_near.png'));
+    jobs.push(loadImage('p_arm_far', 'assets/player/parts/arm_far.png'));
     jobs.push(loadImage('p_blink_half', 'assets/player/blink_half.png'));
     jobs.push(loadImage('p_blink_closed', 'assets/player/blink_closed.png'));
     jobs.push(loadImage('p_punch_arm', 'assets/player/punch_arm.png'));
@@ -805,7 +807,7 @@
       ctx.save();
       ctx.translate(ax + ARM_PIVOT_X, ARM_Y + ARM_PIVOT_Y);
       ctx.rotate(deg * Math.PI / 180);
-      ctx.drawImage(images.p_arm, -ARM_PIVOT_X, -ARM_PIVOT_Y);   // the untouched arm sprite
+      ctx.drawImage(ax === ARM_LEFT_X ? images.p_arm_near : images.p_arm_far, -ARM_PIVOT_X, -ARM_PIVOT_Y);   // the untouched arm sprite
       ctx.restore();
     };
     drawArm(ARM_RIGHT_X, player.armR);              // far arm: behind the body, only sticks out past its edge
@@ -829,7 +831,7 @@
     if (!playerName) return;
     const size = Math.max(11, 4 * SCALE + 3);
     const cx = Math.round((drawX + PW / 2 - camX) * SCALE);
-    const mid = Math.round((drawY - camY - 2) * SCALE) - Math.round(size * 0.8);   // just above the top of the head
+    const mid = Math.round((drawY - SPR_OFF_Y + HEAD_TOP_ROW - camY - 2) * SCALE) - Math.round(size * 0.8);   // just above the top of the head
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.font = 'bold ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
@@ -923,7 +925,7 @@
     const cx = Math.round((drawX + PW / 2 - camX) * SCALE);
     const tail = Math.round(size * 0.5);
     const w = Math.round(size * 3.2), h = Math.round(size * 1.7);
-    const bottom = (nameTopY || Math.round((drawY - camY - 2) * SCALE)) - Math.round(size * 0.35) - tail;
+    const bottom = (nameTopY || Math.round((drawY - SPR_OFF_Y + HEAD_TOP_ROW - camY - 2) * SCALE)) - Math.round(size * 0.35) - tail;
     const x = Math.round(cx - w / 2), y = bottom - h;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -979,7 +981,7 @@
     const tw = Math.max(...lines.map(l => Math.ceil(ctx.measureText(l).width)));
     const w = tw + padX * 2, h = lines.length * lh + padY * 2;
     const tail = Math.round(size * 0.5);
-    const bottom = (nameTopY || Math.round((drawY - camY - 2) * SCALE)) - Math.round(size * 0.35) - tail;
+    const bottom = (nameTopY || Math.round((drawY - SPR_OFF_Y + HEAD_TOP_ROW - camY - 2) * SCALE)) - Math.round(size * 0.35) - tail;
     const x = Math.round(cx - w / 2), y = bottom - h;
     ctx.globalAlpha = age > BUBBLE_MS - 500 ? Math.max(0, (BUBBLE_MS - age) / 500) : 1;   // fade out at the end
     ctx.fillStyle = '#fff';
