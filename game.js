@@ -123,6 +123,50 @@
     return Promise.all(jobs);
   }
 
+  // ---------- Connected blocks ----------
+  // Tiles have a 1px bevel (light top/left edge, dark bottom/right edge). Where a block touches another block of the
+  // same kind, that edge is replaced with the pixels just inside it, so the two blocks join into one surface with no
+  // line between them. Variants are built once per (block, touching sides) and cached. Dirt and grass count as the
+  // same kind. Works with any 32x32 art that has a 1px edge; set EDGE if your art uses a thicker one.
+  const EDGE = 1;
+  const JOIN = { 2: 1 };                                   // grass joins with dirt
+  const joinKind = t => JOIN[t] || t;
+  const tileVariants = {};
+  function tileVariant(t, mask) {
+    const key = t + ':' + mask;
+    let c = tileVariants[key];
+    if (c) return c;
+    const src = images[BLOCKS[t].img];
+    c = document.createElement('canvas');
+    c.width = c.height = TILE;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, 0, 0);
+    const copy = (sx, sy, sw, sh, dx, dy, dw, dh) => {      // replace a strip with a stretched copy of its neighbour
+      g.clearRect(dx, dy, dw, dh);
+      g.drawImage(src, sx, sy, sw, sh, dx, dy, dw, dh);
+    };
+    const E = EDGE, M = TILE - EDGE;
+    if (mask & 1) copy(0, E, TILE, 1, 0, 0, TILE, E);                // top
+    if (mask & 4) copy(0, M - 1, TILE, 1, 0, M, TILE, E);            // bottom
+    if (mask & 8) copy(E, 0, 1, TILE, 0, 0, E, TILE);                // left
+    if (mask & 2) copy(M - 1, 0, 1, TILE, M, 0, E, TILE);            // right
+    // rounded outer corners (like the reference tileset): where two exposed sides meet, shave the corner pixels
+    const shave = (x, y) => g.clearRect(x, y, 1, 1);
+    if (!(mask & 9)) { shave(0, 0); shave(1, 0); shave(0, 1); }                          // top-left
+    if (!(mask & 3)) { shave(M, 0); shave(M - 1, 0); shave(M, 1); }                      // top-right
+    if (!(mask & 12)) { shave(0, M); shave(1, M); shave(0, M - 1); }                     // bottom-left
+    if (!(mask & 6)) { shave(M, M); shave(M - 1, M); shave(M, M - 1); }                  // bottom-right
+    return (tileVariants[key] = c);
+  }
+  function tileMask(tx, ty, t) {
+    const k = joinKind(t);
+    return (joinKind(getTile(tx, ty - 1)) === k && getTile(tx, ty - 1) ? 1 : 0)
+         | (joinKind(getTile(tx + 1, ty)) === k && getTile(tx + 1, ty) ? 2 : 0)
+         | (joinKind(getTile(tx, ty + 1)) === k && getTile(tx, ty + 1) ? 4 : 0)
+         | (joinKind(getTile(tx - 1, ty)) === k && getTile(tx - 1, ty) ? 8 : 0);
+  }
+
   // ---------- World ----------
   let world = new Uint8Array(WORLD_W * WORLD_H);
   let surf = new Array(WORLD_W).fill(0);
@@ -591,7 +635,7 @@
           continue;
         }
         if (t === 6 && ty > surf[tx]) { ctx.fillStyle = '#2a3350'; ctx.fillRect(sx, sy, TILE, TILE); }
-        ctx.drawImage(images[BLOCKS[t].img], sx, sy);
+        ctx.drawImage(tileVariant(t, tileMask(tx, ty, t)), sx, sy);
       }
     }
     // crack overlays
