@@ -87,7 +87,7 @@
   const GRAVITY = 0.5, MAX_FALL = 13, JUMP_V = -9.6;
   // Whole/binary-friendly numbers so steady walking moves exactly 3 px every step (no uneven pixel steps).
   const MOVE_SPEED = 3, ACCEL_GROUND = 0.5, ACCEL_AIR = 0.25, FRICTION = 0.6;
-  const REACH = 4.5 * TILE;
+  const REACH_TILES = 2;      // normal reach: 2 tiles in every direction from the tile you stand on = a 5x5 grid
   const PUNCH_DELAY = 170;          // ms between punches while holding
 
   // id -> block info. Swap the PNGs in assets/tiles/ to change the look.
@@ -442,12 +442,16 @@
   // ---------- Block actions ----------
   function playerCenter() { return { x: player.x + PW / 2, y: player.y + PH / 2 }; }
 
+  // the tile the player is standing on (centre of the body); reach is a square of REACH_TILES around it
+  function tileInReach(tx, ty) {
+    const c = playerCenter();
+    return Math.abs(tx - Math.floor(c.x / TILE)) <= REACH_TILES && Math.abs(ty - Math.floor(c.y / TILE)) <= REACH_TILES;
+  }
+
   function targetTile() {
     const wx = mouse.x + camX, wy = mouse.y + camY;
     const tx = Math.floor(wx / TILE), ty = Math.floor(wy / TILE);
-    const c = playerCenter();
-    const dx = tx * TILE + TILE / 2 - c.x, dy = ty * TILE + TILE / 2 - c.y;
-    const inReach = Math.hypot(dx, dy) <= REACH;
+    const inReach = tileInReach(tx, ty);
     return { tx, ty, inReach };
   }
 
@@ -1054,8 +1058,8 @@
     if (!invOpen && now > reachUntil) return;
     const fade = invOpen ? 1 : Math.min(1, (reachUntil - now) / 500);
     const c = playerCenter();
-    const cx0 = Math.floor(c.x / TILE), cy0 = Math.floor(c.y / TILE), r = Math.ceil(REACH / TILE) + 1;
-    const inReach = (tx, ty) => Math.hypot(tx * TILE + TILE / 2 - c.x, ty * TILE + TILE / 2 - c.y) <= REACH;
+    const cx0 = Math.floor(c.x / TILE), cy0 = Math.floor(c.y / TILE), r = REACH_TILES;
+    const inReach = tileInReach;
     ctx.save();
     ctx.globalAlpha = fade;
     for (let ty = cy0 - r; ty <= cy0 + r; ty++) {
