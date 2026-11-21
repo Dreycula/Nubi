@@ -87,3 +87,14 @@ def mouth(stage):
 
 mouth('half').save(f'{OUT}/mouth_half.png')
 mouth('open').save(f'{OUT}/mouth_open.png')
+
+# ---- punch face overlay: angry, focused eyes (slanted lids over the inner top corners), drawn from the body's own shade tone ----
+LIDP = body.getpixel((4, 9))   # skin shade used for the lids
+def punch_face():
+    o = Image.new('RGBA', (W, H), CLEAR)
+    for x in range(10, 14): o.putpixel((x, 9), LIDP)           # left eye: lid slopes down toward the nose
+    for x in range(12, 14): o.putpixel((x, 10), LIDP)
+    for x in range(16, 20): o.putpixel((x, 9), LIDP)           # right eye (mirror)
+    for x in range(16, 18): o.putpixel((x, 10), LIDP)
+    return o
+punch_face().save(f'{OUT}/punch_face.png')

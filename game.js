@@ -118,6 +118,7 @@
     jobs.push(loadImage('p_arm', 'assets/player/parts/arm.png'));
     jobs.push(loadImage('p_blink_half', 'assets/player/blink_half.png'));
     jobs.push(loadImage('p_blink_closed', 'assets/player/blink_closed.png'));
+    jobs.push(loadImage('p_punch_face', 'assets/player/punch_face.png'));
     jobs.push(loadImage('p_mouth_half', 'assets/player/mouth_half.png'));
     jobs.push(loadImage('p_mouth_open', 'assets/player/mouth_open.png'));
     Object.values(BLOCKS).forEach(b => jobs.push(loadImage(b.img, 'assets/tiles/' + b.img + '.png')));
@@ -514,6 +515,16 @@
     saveSoon();
   }
 
+  // Punch / place animation: the arm reaches out to the block, with an angry-focused face. The arm is built from the
+  // untouched arm sprite (shoulder rows, the middle row repeated, hand rows), never stretched, so its pixels stay exactly yours.
+  const PUNCH_MS = 180;
+  const punchAnim = { t: -1e9, tx: 0, ty: 0 };
+  function startPunch(now, tx, ty) {
+    punchAnim.t = now; punchAnim.tx = tx; punchAnim.ty = ty;
+    const c = playerCenter(), dx = tx * TILE + TILE / 2 - c.x;
+    if (Math.abs(dx) > 3) player.facing = dx > 0 ? 1 : -1;          // turn to face the block
+  }
+
   // The wrench is for editing blocks later (doors, signs, locks...). For now it just tells you what you clicked.
   const toastEl = document.getElementById('toast');
   let toastTimer = null;
@@ -533,6 +544,7 @@
     const t = targetTile();
     if (!t.inReach) return;
     mouse.lastPunch = now;
+    startPunch(now, t.tx, t.ty);
     if (mouse.button === 'place') placeBlock(t.tx, t.ty);
     else if (mouse.button === 'wrench') wrenchTile(t.tx, t.ty);
     else punch(t.tx, t.ty);
@@ -744,6 +756,35 @@
     }
     return null;
   }
+  function punchExtension(now) {                  // 0..1: out fast, hold a moment, back
+    const k = (now - punchAnim.t) / PUNCH_MS;
+    if (k < 0 || k >= 1) return 0;
+    if (k < 0.35) { const u = k / 0.35; return 1 - (1 - u) * (1 - u); }
+    if (k < 0.5) return 1;
+    const u = (k - 0.5) / 0.5; return 1 - u * u;
+  }
+  const ARM_SHOULDER_ROWS = 5, ARM_HAND_ROWS = 3, ARM_MID_ROW = 6;
+  function drawArmReach(ax, now, px, py) {
+    const e = punchExtension(now);
+    const tcx = punchAnim.tx * TILE + TILE / 2 - camX, tcy = punchAnim.ty * TILE + TILE / 2 - camY;
+    const ox = px - SPR_OFF_X, oy = py - SPR_OFF_Y;
+    const lx = player.facing >= 0 ? tcx - ox : ox + SPR_W - tcx, ly = tcy - oy;   // target in the character's own (mirrored) space
+    const sx = ax + ARM_PIVOT_X, sy = ARM_Y + ARM_PIVOT_Y;
+    const vx = lx - sx, vy = ly - sy;
+    const dist = Math.hypot(vx, vy);
+    const reachLen = Math.max(10, Math.min(dist - 6, TILE * 2.6));
+    const len = Math.round(10 + e * (reachLen - 10));
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(Math.atan2(vy, vx) - Math.PI / 2);                // the arm sprite hangs down, so turn it to point at the block
+    const img = images.p_arm, W = img.width;
+    let y = -ARM_PIVOT_Y;
+    ctx.drawImage(img, 0, 0, W, ARM_SHOULDER_ROWS, -ARM_PIVOT_X, y, W, ARM_SHOULDER_ROWS); y += ARM_SHOULDER_ROWS;
+    const mid = Math.max(0, len - ARM_SHOULDER_ROWS - ARM_HAND_ROWS);
+    for (let i = 0; i < mid; i++) { ctx.drawImage(img, 0, ARM_MID_ROW, W, 1, -ARM_PIVOT_X, y, W, 1); y += 1; }
+    ctx.drawImage(img, 0, img.height - ARM_HAND_ROWS, W, ARM_HAND_ROWS, -ARM_PIVOT_X, y, W, ARM_HAND_ROWS);
+    ctx.restore();
+  }
   function drawPlayer(now) {
     const img = currentFrame();
     const px = drawX - camX;
@@ -765,11 +806,15 @@
     };
     drawArm(ARM_RIGHT_X, player.armR);              // far arm: behind the body, only sticks out past its edge
     ctx.drawImage(img, 0, 0);                       // body (legs animated), no arms
-    const lids = blinkOverlay(now);
+    const angry = now - punchAnim.t < PUNCH_MS + 150;
+    const lids = angry ? null : blinkOverlay(now);
     if (lids) ctx.drawImage(lids, 0, 0);            // eyes closing, drawn over the face only
-    const mouthImg = mouthOverlay(now);
-    if (mouthImg) ctx.drawImage(mouthImg, 0, 0);    // mouth open (talking / jumping)
-    drawArm(ARM_LEFT_X, player.armL);               // near arm: in front of the body
+    if (angry) ctx.drawImage(images.p_punch_face, 0, 0);   // angry, focused eyes while punching / placing
+    const mouthImg = angry ? images.p_mouth_open : mouthOverlay(now);
+    if (mouthImg) ctx.drawImage(mouthImg, 0, 0);    // mouth open (talking / jumping / punching)
+    const punching = now - punchAnim.t < PUNCH_MS;
+    if (punching) drawArmReach(ARM_LEFT_X, now, px, py);   // near arm reaches out to the block
+    else drawArm(ARM_LEFT_X, player.armL);               // near arm: in front of the body
     ctx.restore();
   }
 
