@@ -72,19 +72,17 @@ def blink(stage):
 blink('half').save(f'{OUT}/blink_half.png')
 blink('closed').save(f'{OUT}/blink_closed.png')
 
-# ---- mouth overlays (talking / jumping): small open mouths built from the body's own mouth colour ----
-MOUTH = body.getpixel((13, 16))   # the dark brown of the drawn mouth line
-INSIDE = (58, 22, 16, 255)        # a darker brown for the inside of an open mouth
+# ---- mouth overlays (talking / jumping): the drawn mouth line is covered with skin and replaced by a small dark square ----
+SKIN_FACE = body.getpixel((7, 14))   # plain face skin under the mouth
+DARK = body.getpixel((11, 9))        # the same near-black as the pupils
+MOUTH_LINE = [(12, 15)] + [(x, 16) for x in range(13, 18)]
 
 def mouth(stage):
     o = Image.new('RGBA', (W, H), CLEAR)
-    if stage == 'half':                                  # slightly open: the mouth line gets a second row under it
-        for x in range(14, 17): o.putpixel((x, 17), MOUTH)
-        for x in range(14, 17): o.putpixel((x, 16), INSIDE)
-    else:                                                # wide open: 5x3 mouth with dark inside
-        for x in range(13, 18):
-            o.putpixel((x, 15), MOUTH); o.putpixel((x, 17), MOUTH)
-        for x in range(13, 18): o.putpixel((x, 16), MOUTH if x in (13, 17) else INSIDE)
+    for p in MOUTH_LINE: o.putpixel(p, SKIN_FACE)          # wipe the closed-mouth line
+    rows = (15, 16) if stage == 'open' else (16,)          # open = 2x2 square, half = 2x1
+    for y in rows:
+        for x in (14, 15): o.putpixel((x, y), DARK)
     return o
 
 mouth('half').save(f'{OUT}/mouth_half.png')
