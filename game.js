@@ -752,7 +752,39 @@
   const chatBtn = document.getElementById('btnChat');
   if (chatBtn) chatBtn.addEventListener('click', () => { if (chatEl.classList.contains('open')) closeChat(); else openChat(); });
 
+  // "..." bubble shown over the head while the chat box is open (the player is typing)
+  function drawTyping(now) {
+    const size = Math.max(11, 4 * SCALE + 3);
+    const cx = Math.round((drawX + PW / 2 - camX) * SCALE);
+    const tail = Math.round(size * 0.5);
+    const w = Math.round(size * 3.2), h = Math.round(size * 1.7);
+    const bottom = (nameTopY || Math.round((drawY - camY - 2) * SCALE)) - Math.round(size * 0.35) - tail;
+    const x = Math.round(cx - w / 2), y = bottom - h;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(10, 14, 30, .85)';
+    ctx.lineWidth = Math.max(2, Math.round(SCALE * 0.8));
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, Math.round(size * 0.8)); else ctx.rect(x, y, w, h);
+    ctx.moveTo(cx - tail, bottom); ctx.lineTo(cx, bottom + tail); ctx.lineTo(cx + tail, bottom);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cx - tail + 1, bottom - 1, tail * 2 - 1, ctx.lineWidth + 1);
+    const r = Math.max(2, Math.round(size * 0.13)), step = Math.round(size * 0.7);
+    ctx.fillStyle = '#16192b';
+    for (let i = -1; i <= 1; i++) {                               // three dots that bounce one after another
+      const bounce = Math.max(0, Math.sin(now / 160 - i * 1.1)) * Math.round(size * 0.22);
+      ctx.beginPath();
+      ctx.arc(cx + i * step, y + h / 2 - bounce, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawBubble(now) {
+    if (chatEl.classList.contains('open')) { drawTyping(now); return; }
     if (!bubble) return;
     const age = now - bubble.t;
     if (age > BUBBLE_MS) { bubble = null; return; }
