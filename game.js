@@ -121,6 +121,8 @@
     jobs.push(loadImage('p_mouth_half', 'assets/player/mouth_half.png'));
     jobs.push(loadImage('p_mouth_open', 'assets/player/mouth_open.png'));
     Object.values(BLOCKS).forEach(b => jobs.push(loadImage(b.img, 'assets/tiles/' + b.img + '.png')));
+    jobs.push(loadImage('ui_fist', 'assets/ui/fist.png'));
+    jobs.push(loadImage('ui_wrench', 'assets/ui/wrench.png'));
     for (let i = 1; i <= 4; i++) jobs.push(loadImage('crack' + i, 'assets/tiles/crack_' + i + '.png'));
     return Promise.all(jobs);
   }
@@ -249,7 +251,7 @@
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         w: WORLD_W, h: WORLD_H,
         world: encode(world),
-        inv, selected, drops: drops.map(d => ({ x: d.x, y: d.y, id: d.id, n: d.n })),
+        inv, selected, tool: toolKind, drops: drops.map(d => ({ x: d.x, y: d.y, id: d.id, n: d.n })),
         px: player.x, py: player.y
       }));
     } catch (e) { /* storage unavailable: game still works, it just won't persist */ }
@@ -263,7 +265,7 @@
       if (d.w !== WORLD_W || d.h !== WORLD_H) return null;
       const arr = decode(d.world);
       if (arr.length !== WORLD_W * WORLD_H) return null;
-      return { world: arr, inv: d.inv, selected: d.selected, drops: d.drops, px: d.px, py: d.py };
+      return { world: arr, inv: d.inv, selected: d.selected, tool: d.tool, drops: d.drops, px: d.px, py: d.py };
     } catch (e) { return null; }
   }
 
@@ -273,7 +275,9 @@
   let inv = {};
   let drops = [];             // items lying in the world: { x, y, vy, id, n, t } (t = time dropped, for the pickup delay)
   let selected = 0;           // index into PLACEABLE
-  let placeMode = false;      // false = left click breaks, true = left click places
+  let placeMode = false;      // true while a block is in hand (left click places); false while the fist / wrench is in hand
+  let toolKind = 'fist';      // what the first hotbar slot holds: 'fist' (punch blocks) or 'wrench' (double-click the slot to swap)
+  let holding = 'fist';       // 'fist' | 'wrench' | 'block'
   const hits = new Map();     // "x,y" -> { n, t }
 
   function freshInventory() {
@@ -287,6 +291,7 @@
     world = g.world; surf = g.surf; spawnX = g.spawnX;
     inv = freshInventory();
     selected = 0;
+    toolKind = 'fist'; holding = 'fist'; placeMode = false;
     drops = [];
     hits.clear();
     player.x = spawnX * TILE + 5;
@@ -334,7 +339,8 @@
       e.preventDefault();
       return;
     }
-    if (e.key >= '1' && e.key <= '6') { selectSlot(parseInt(e.key, 10) - 1); }
+    if (e.key === '1') { if (holding !== 'block') toggleTool(); else selectTool(); }
+    else if (e.key >= '2' && e.key <= '7') { selectSlot(parseInt(e.key, 10) - 2); }
     if (e.key === 'q' || e.key === 'Q') setMode(!placeMode);
     if (e.key === 'i' || e.key === 'I') toggleInventory();
   });
@@ -353,7 +359,7 @@
     const p = canvasPos(e);
     mouse.x = p.x; mouse.y = p.y; mouse.down = true;
     // right button always places; otherwise follow the current mode
-    mouse.button = e.button === 2 ? 'place' : (placeMode ? 'place' : 'break');
+    mouse.button = e.button === 2 ? 'place' : (placeMode ? 'place' : holding === 'wrench' ? 'wrench' : 'break');
     mouse.lastPunch = 0;
     canvas.setPointerCapture(e.pointerId);
     // act right away so quick taps/clicks always register; holding then repeats
@@ -404,40 +410,61 @@
   const hotbar = document.getElementById('hotbar');
   function buildHotbar() {
     hotbar.innerHTML = '';
+    // first slot: the fist / wrench. It is always there and can't be replaced. Click = hold it, double-click = swap fist <-> wrench.
+    const tool = document.createElement('div');
+    tool.className = 'slot tool';
+    tool.innerHTML = '<span class="key">1</span><img alt="" src="assets/ui/fist.png">';
+    tool.addEventListener('click', () => {
+      const now = performance.now();
+      if (now - lastToolClick < 350) { toggleTool(); lastToolClick = 0; } else { selectTool(); lastToolClick = now; }
+    });
+    hotbar.appendChild(tool);
     PLACEABLE.forEach((id, i) => {
       const slot = document.createElement('div');
       slot.className = 'slot';
       slot.dataset.i = i;
       slot.title = BLOCKS[id].name;
-      slot.innerHTML = '<span class="key">' + (i + 1) + '</span><img alt="" src="assets/tiles/' + BLOCKS[id].img + '.png"><span class="count"></span>';
+      slot.innerHTML = '<span class="key">' + (i + 2) + '</span><img alt="" src="assets/tiles/' + BLOCKS[id].img + '.png"><span class="count"></span>';
       slot.addEventListener('click', () => selectSlot(i));
       hotbar.appendChild(slot);
     });
     refreshHotbar();
   }
+  let lastToolClick = 0;
   function refreshHotbar() {
-    [...hotbar.children].forEach((slot, i) => {
+    const kids = [...hotbar.children];
+    if (!kids.length) return;
+    const tool = kids[0];
+    tool.classList.toggle('selected', holding !== 'block');
+    tool.title = toolKind === 'fist' ? 'Fist (double-click for the wrench)' : 'Wrench (double-click for the fist)';
+    tool.querySelector('img').src = 'assets/ui/' + toolKind + '.png';
+    kids.slice(1).forEach((slot, i) => {
       const id = PLACEABLE[i];
-      slot.classList.toggle('selected', i === selected);
+      slot.classList.toggle('selected', holding === 'block' && i === selected);
       slot.classList.toggle('empty', !inv[id]);
       slot.querySelector('.count').textContent = inv[id] || 0;
     });
     if (typeof refreshInventory === 'function') refreshInventory();
   }
-  let reachUntil = 0;         // the reach outline is shown until this time (and while the inventory is open)
-  function showReach() { reachUntil = performance.now() + 3000; }
+  function applyHolding(h) {
+    holding = h;
+    placeMode = h === 'block';
+    document.getElementById('modeLabel').textContent = h === 'block' ? 'Place' : h === 'wrench' ? 'Wrench' : 'Fist';
+    document.getElementById('btnMode').textContent = h === 'block' ? '▣' : h === 'wrench' ? '🔧' : '👊';
+    refreshHotbar();
+    saveSoon();
+  }
+  function selectTool() { applyHolding(toolKind); }
+  function toggleTool() { toolKind = toolKind === 'fist' ? 'wrench' : 'fist'; applyHolding(toolKind); }
   function selectSlot(i) {
     if (i < 0 || i >= PLACEABLE.length) return;
     selected = i;
     showReach();
-    refreshHotbar();
-    saveSoon();
+    applyHolding('block');
   }
-  function setMode(place) {
-    placeMode = place;
-    document.getElementById('modeLabel').textContent = place ? 'Place' : 'Break';
-    document.getElementById('btnMode').textContent = place ? '▣' : '⛏';
-  }
+  let reachUntil = 0;         // the reach outline is shown until this time (and while the inventory is open)
+  function showReach() { reachUntil = performance.now() + 3000; }
+  function setMode(place) { applyHolding(place ? 'block' : toolKind); }
 
   // ---------- Block actions ----------
   function playerCenter() { return { x: player.x + PW / 2, y: player.y + PH / 2 }; }
@@ -487,12 +514,27 @@
     saveSoon();
   }
 
+  // The wrench is for editing blocks later (doors, signs, locks...). For now it just tells you what you clicked.
+  const toastEl = document.getElementById('toast');
+  let toastTimer = null;
+  function toast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+  }
+  function wrenchTile(tx, ty) {
+    const t = getTile(tx, ty);
+    toast(t ? BLOCKS[t].name + ': nothing to edit yet' : 'Nothing here');
+  }
+
   function handleMouse(now) {
     if (!mouse.down || now - mouse.lastPunch < PUNCH_DELAY) return;
     const t = targetTile();
     if (!t.inReach) return;
     mouse.lastPunch = now;
     if (mouse.button === 'place') placeBlock(t.tx, t.ty);
+    else if (mouse.button === 'wrench') wrenchTile(t.tx, t.ty);
     else punch(t.tx, t.ty);
   }
 
@@ -996,9 +1038,7 @@
         cell.addEventListener('click', () => {
           invSel = id;
           const pi = PLACEABLE.indexOf(id);
-          showReach();
-          if (pi >= 0) { selected = pi; saveSoon(); }
-          refreshHotbar();
+          if (pi >= 0) selectSlot(pi); else refreshHotbar();
         });
       }
       invGrid.appendChild(cell);
@@ -1162,6 +1202,8 @@
       world = s.world;
       inv = Object.assign(freshInventory(), s.inv || {});
       selected = Math.max(0, Math.min(PLACEABLE.length - 1, s.selected | 0));
+      toolKind = s.tool === 'wrench' ? 'wrench' : 'fist';
+      holding = toolKind; placeMode = false;
       drops = (Array.isArray(s.drops) ? s.drops : []).filter(d => d && BLOCKS[d.id] && d.n > 0 && isFinite(d.x) && isFinite(d.y)).map(d => ({ x: d.x, y: d.y, vy: 0, id: d.id, n: d.n, t: 0 }));
       player.x = s.px; player.y = s.py - 4;   // the hitbox got 1px taller; start just above where you saved so you can't spawn inside a block
       if (!isFinite(player.x) || !isFinite(player.y)) { player.x = spawnX * TILE + 5; player.y = (surf[spawnX] - 2) * TILE; }
@@ -1170,6 +1212,7 @@
     } else {
       newWorld();
     }
+    applyHolding(holding);
     document.getElementById('loading').remove();
     requestAnimationFrame(frame);
   }).catch(err => {

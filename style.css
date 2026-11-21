@@ -365,3 +365,14 @@ body.auth-open #hud, body.auth-open #hudRight, body.auth-open #dock, body.auth-o
 .dlg-btns button { flex: 1; padding: 9px; font: inherit; font-size: 14px; font-weight: bold; border: 0; border-radius: 6px; cursor: pointer; color: #fff; background: rgba(255,255,255,.18); }
 .dlg-btns button#dlgOk { color: #2a2a2a; background: #ffd84a; }
 .dlg-btns button[hidden] { display: none; }
+
+/* fist / wrench slot + toast */
+.slot.tool img { padding: 4px; }
+#toast {
+  position: fixed; left: 50%; top: 64px; transform: translateX(-50%);
+  padding: 7px 14px; font-size: 14px; color: #fff;
+  background: rgba(20, 24, 40, .85); border: 2px solid rgba(255, 255, 255, .3); border-radius: 18px;
+  opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 8;
+}
+#toast.show { opacity: 1; }
+body.auth-open #toast { display: none; }
