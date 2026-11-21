@@ -249,7 +249,7 @@
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         w: WORLD_W, h: WORLD_H,
         world: encode(world),
-        inv, selected,
+        inv, selected, drops: drops.map(d => ({ x: d.x, y: d.y, id: d.id, n: d.n })),
         px: player.x, py: player.y
       }));
     } catch (e) { /* storage unavailable: game still works, it just won't persist */ }
@@ -263,7 +263,7 @@
       if (d.w !== WORLD_W || d.h !== WORLD_H) return null;
       const arr = decode(d.world);
       if (arr.length !== WORLD_W * WORLD_H) return null;
-      return { world: arr, inv: d.inv, selected: d.selected, px: d.px, py: d.py };
+      return { world: arr, inv: d.inv, selected: d.selected, drops: d.drops, px: d.px, py: d.py };
     } catch (e) { return null; }
   }
 
@@ -271,6 +271,7 @@
   // px/py = position at the previous physics step, used to interpolate smoothly when drawing
   const player = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, onGround: false, facing: 1, animT: 0, armL: 0, armR: 0, coyote: 0, jumpBuf: 0 };
   let inv = {};
+  let drops = [];             // items lying in the world: { x, y, vy, id, n, t } (t = time dropped, for the pickup delay)
   let selected = 0;           // index into PLACEABLE
   let placeMode = false;      // false = left click breaks, true = left click places
   const hits = new Map();     // "x,y" -> { n, t }
@@ -286,6 +287,7 @@
     world = g.world; surf = g.surf; spawnX = g.spawnX;
     inv = freshInventory();
     selected = 0;
+    drops = [];
     hits.clear();
     player.x = spawnX * TILE + 5;
     player.y = (surf[spawnX] - 2) * TILE;
@@ -334,6 +336,7 @@
     }
     if (e.key >= '1' && e.key <= '6') { selectSlot(parseInt(e.key, 10) - 1); }
     if (e.key === 'q' || e.key === 'Q') setMode(!placeMode);
+    if (e.key === 'i' || e.key === 'I') toggleInventory();
   });
   window.addEventListener('keyup', e => {
     const k = KEYMAP[e.key];
@@ -367,6 +370,7 @@
   let lastZoom = 0;
   window.addEventListener('wheel', e => {
     if (document.body.classList.contains('auth-open')) return;   // let the login card scroll normally
+    if (e.target.closest && e.target.closest('#invPanel')) return;   // let the inventory grid scroll
     e.preventDefault();
     const now = performance.now();
     if (now - lastZoom < 120 || e.deltaY === 0) return;   // one step per wheel notch
@@ -418,6 +422,7 @@
       slot.classList.toggle('empty', !inv[id]);
       slot.querySelector('.count').textContent = inv[id] || 0;
     });
+    if (typeof refreshInventory === 'function') refreshInventory();
   }
   function selectSlot(i) {
     if (i < 0 || i >= PLACEABLE.length) return;
@@ -909,10 +914,181 @@
     updateCamera();
     drawSky();
     drawWorld(now);
+    drawDrops(now);
     drawPlayer(now);
     drawName();
     drawBubble(now);
     drawCursor();
+  }
+
+  // ---------- Inventory panel (drag the handle above the hotbar up to open it) ----------
+  const dock = document.getElementById('dock');
+  const invPanel = document.getElementById('invPanel');
+  const invHandle = document.getElementById('invHandle');
+  const invGrid = document.getElementById('invGrid');
+  const invSearch = document.getElementById('invSearch');
+  const invName = document.getElementById('invName');
+  const dlg = document.getElementById('invDialog');
+  const dlgTitle = document.getElementById('dlgTitle'), dlgBody = document.getElementById('dlgBody');
+  const dlgAmt = document.getElementById('dlgAmt'), dlgOk = document.getElementById('dlgOk'), dlgCancel = document.getElementById('dlgCancel');
+  const INV_COLS = 9, INV_MIN_SLOTS = 27;
+  let invOpen = false;
+
+  function invMaxH() { return Math.min(250, Math.round(window.innerHeight * 0.5)); }
+  function setInvHeight(h, animate) {
+    invPanel.style.transition = animate ? 'height .18s ease-out' : 'none';
+    invPanel.style.height = Math.round(h) + 'px';
+    invPanel.classList.toggle('shown', h > 8);
+  }
+  function openInventory() { invOpen = true; setInvHeight(invMaxH(), true); refreshInventory(); }
+  function closeInventory() { invOpen = false; setInvHeight(0, true); invSearch.blur(); }
+  function toggleInventory() { if (invOpen) closeInventory(); else openInventory(); }
+
+  // drag the handle up to open, down to close; a plain tap toggles
+  let drag = null;
+  invHandle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    invHandle.setPointerCapture(e.pointerId);
+    drag = { y: e.clientY, h: invPanel.offsetHeight, moved: false };
+  });
+  invHandle.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dy = drag.y - e.clientY;
+    if (Math.abs(dy) > 4) drag.moved = true;
+    if (drag.moved) setInvHeight(Math.max(0, Math.min(invMaxH(), drag.h + dy)), false);
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.moved) { toggleInventory(); return; }
+    if (invPanel.offsetHeight > invMaxH() * 0.35) openInventory(); else closeInventory();
+  };
+  invHandle.addEventListener('pointerup', endDrag);
+  invHandle.addEventListener('pointercancel', endDrag);
+
+  let invSel = null;          // block id picked in the inventory grid
+  function ownedItems() {
+    const q = invSearch.value.trim().toLowerCase();
+    return Object.keys(BLOCKS).map(Number).filter(id => inv[id] > 0 && (!q || BLOCKS[id].name.toLowerCase().includes(q)));
+  }
+  function refreshInventory() {
+    if (!invGrid) return;
+    const items = ownedItems();
+    if (invSel === null || !inv[invSel]) invSel = PLACEABLE[selected] && inv[PLACEABLE[selected]] ? PLACEABLE[selected] : (items[0] || null);
+    invGrid.innerHTML = '';
+    const total = Math.max(INV_MIN_SLOTS, Math.ceil(items.length / INV_COLS) * INV_COLS);
+    for (let i = 0; i < total; i++) {
+      const cell = document.createElement('div');
+      const id = items[i];
+      cell.className = 'inv-cell' + (id === undefined ? ' blank' : '') + (id === invSel ? ' sel' : '');
+      if (id !== undefined) {
+        cell.title = BLOCKS[id].name;
+        cell.innerHTML = '<img alt="" src="assets/tiles/' + BLOCKS[id].img + '.png"><span class="count">' + inv[id] + '</span>';
+        cell.addEventListener('click', () => {
+          invSel = id;
+          const pi = PLACEABLE.indexOf(id);
+          if (pi >= 0) { selected = pi; saveSoon(); }
+          refreshHotbar();
+        });
+      }
+      invGrid.appendChild(cell);
+    }
+    invName.textContent = invSel ? BLOCKS[invSel].name + ' x' + inv[invSel] : 'No item';
+    dock.querySelectorAll('.inv-act').forEach(b => { b.disabled = !invSel; });
+  }
+  invSearch.addEventListener('input', refreshInventory);
+  invSearch.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') invSearch.blur(); });
+
+  // small dialog used by Drop / Trash / Info
+  let dlgAction = null;
+  function showDialog(title, body, withAmount, okText, action) {
+    dlgTitle.textContent = title;
+    dlgBody.textContent = body;
+    dlgAmt.hidden = !withAmount;
+    dlgAmt.value = '1';
+    dlgOk.textContent = okText;
+    dlgCancel.hidden = !action;
+    dlgAction = action;
+    dlg.hidden = false;
+    keys.left = keys.right = keys.jump = false;
+    if (withAmount) { dlgAmt.max = String(inv[invSel] || 1); dlgAmt.focus(); dlgAmt.select(); } else dlgOk.focus();
+  }
+  function closeDialog() { dlg.hidden = true; dlgAction = null; }
+  function dialogAmount() { return Math.max(1, Math.min(inv[invSel] || 0, parseInt(dlgAmt.value, 10) || 1)); }
+  dlgOk.addEventListener('click', () => { const a = dlgAction; const n = dialogAmount(); closeDialog(); if (a) a(n); });
+  dlgCancel.addEventListener('click', closeDialog);
+  dlg.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); dlgOk.click(); }
+    if (e.key === 'Escape') closeDialog();
+  });
+
+  document.getElementById('invDrop').addEventListener('click', () => {
+    if (!invSel) return;
+    const id = invSel;
+    showDialog('Drop ' + BLOCKS[id].name, 'How many do you want to drop? (you have ' + inv[id] + ')', true, 'Drop', n => dropItem(id, n));
+  });
+  document.getElementById('invTrash').addEventListener('click', () => {
+    if (!invSel) return;
+    const id = invSel;
+    showDialog('Trash ' + BLOCKS[id].name, 'How many do you want to throw away for good? (you have ' + inv[id] + ')', true, 'Trash', n => {
+      inv[id] = Math.max(0, (inv[id] || 0) - n);
+      refreshHotbar(); saveSoon();
+    });
+  });
+  document.getElementById('invInfo').addEventListener('click', () => {
+    if (!invSel) return;
+    const b = BLOCKS[invSel];
+    const hitsTxt = b.hits === Infinity ? 'Cannot be broken.' : 'Takes ' + b.hits + ' punches to break.';
+    showDialog(b.name, hitsTxt + ' You have ' + inv[invSel] + '. Place it with right-click (or Place mode).', false, 'OK', null);
+  });
+
+  // ---- items lying in the world ----
+  const DROP_SIZE = 16;
+  function dropItem(id, n) {
+    n = Math.min(n, inv[id] || 0);
+    if (n <= 0) return;
+    inv[id] -= n;
+    const c = playerCenter();
+    let x = c.x + player.facing * (PW / 2 + 12) - DROP_SIZE / 2;
+    if (solidAt(Math.floor((x + DROP_SIZE / 2) / TILE), Math.floor(c.y / TILE))) x = c.x - DROP_SIZE / 2;   // wall in front: drop at your feet
+    drops.push({ x, y: player.y + PH - DROP_SIZE - 8, vy: 0, id, n, t: performance.now() });
+    refreshHotbar(); saveSoon();
+  }
+  function stepDrops(now) {
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const d = drops[i];
+      d.vy = Math.min(10, d.vy + 0.4);
+      let ny = d.y + d.vy;
+      const fx0 = Math.floor((d.x + 1) / TILE), fx1 = Math.floor((d.x + DROP_SIZE - 2) / TILE);
+      const row = Math.floor((ny + DROP_SIZE) / TILE);
+      if (d.vy >= 0 && (solidAt(fx0, row) || solidAt(fx1, row)) && d.y + DROP_SIZE <= row * TILE + 1) { ny = row * TILE - DROP_SIZE; d.vy = 0; }
+      d.y = ny;
+      if (d.y > WORLD_H * TILE) { drops.splice(i, 1); continue; }
+      // walk over it to pick it up (after a short delay so a fresh drop isn't grabbed straight back)
+      if (now - d.t > 1200 && player.x < d.x + DROP_SIZE && player.x + PW > d.x && player.y < d.y + DROP_SIZE && player.y + PH > d.y) {
+        inv[d.id] = (inv[d.id] || 0) + d.n;
+        drops.splice(i, 1);
+        refreshHotbar(); saveSoon();
+      }
+    }
+  }
+  function drawDrops(now) {
+    drops.forEach(d => {
+      const bob = Math.round(Math.sin(now / 300 + d.x) * 1);
+      const sx = Math.round(d.x - camX), sy = Math.round(d.y - camY + bob);
+      ctx.drawImage(images[BLOCKS[d.id].img], sx, sy, DROP_SIZE, DROP_SIZE);
+      if (d.n > 1) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.font = 'bold ' + Math.max(9, 3 * SCALE + 3) + 'px "Trebuchet MS", Verdana, sans-serif';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+        ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(10,14,30,.85)'; ctx.fillStyle = '#fff';
+        const tx = (sx + DROP_SIZE) * SCALE, ty = (sy + DROP_SIZE) * SCALE;
+        ctx.strokeText(String(d.n), tx, ty); ctx.fillText(String(d.n), tx, ty);
+        ctx.restore();
+      }
+    });
   }
 
   // ---------- Main loop ----------
@@ -922,7 +1098,7 @@
     if (!last) last = now;
     acc += Math.min(100, now - last);
     last = now;
-    while (acc >= STEP) { stepPlayer(); acc -= STEP; }
+    while (acc >= STEP) { stepPlayer(); stepDrops(now); acc -= STEP; }
     handleMouse(now);
     render(now, acc / STEP);
     requestAnimationFrame(frame);
@@ -952,6 +1128,7 @@
       world = s.world;
       inv = Object.assign(freshInventory(), s.inv || {});
       selected = Math.max(0, Math.min(PLACEABLE.length - 1, s.selected | 0));
+      drops = (Array.isArray(s.drops) ? s.drops : []).filter(d => d && BLOCKS[d.id] && d.n > 0 && isFinite(d.x) && isFinite(d.y)).map(d => ({ x: d.x, y: d.y, vy: 0, id: d.id, n: d.n, t: 0 }));
       player.x = s.px; player.y = s.py - 4;   // the hitbox got 1px taller; start just above where you saved so you can't spawn inside a block
       if (!isFinite(player.x) || !isFinite(player.y)) { player.x = spawnX * TILE + 5; player.y = (surf[spawnX] - 2) * TILE; }
       player.px = player.x; player.py = player.y;
