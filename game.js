@@ -769,6 +769,7 @@
   // The punching arm is a chunky 15px-wide arm (assets/player/punch_arm.png: 5 shoulder rows, 1 repeatable middle row, 8 fist rows).
   // It is never scaled: the middle row is repeated to reach the block, so its pixels stay crisp.
   const PA_TOP = 5, PA_FIST = 8, PA_MID_ROW = 5;
+  let armCanvas = null;
   function drawArmReach(ax, now, px, py) {
     const e = punchExtension(now);
     const tcx = punchAnim.tx * TILE + TILE / 2 - camX, tcy = punchAnim.ty * TILE + TILE / 2 - camY;
@@ -781,14 +782,22 @@
     const reachLen = Math.max(minLen, Math.min(dist - 2, TILE * 2.6));            // the fist ends at the block
     const len = Math.round(minLen + e * (reachLen - minLen));
     const img = images.p_punch_arm, W = img.width;
+    // Build the whole arm unrotated on a small canvas first (shoulder + repeated middle row + fist), then draw that ONE
+    // picture rotated. Drawing the rows separately rotated left hairline gaps between them (the "torn" look).
+    if (!armCanvas) armCanvas = document.createElement('canvas');
+    const total = Math.max(len, PA_TOP + PA_FIST);
+    if (armCanvas.width !== W || armCanvas.height !== total) { armCanvas.width = W; armCanvas.height = total; }
+    const ag = armCanvas.getContext('2d');
+    ag.clearRect(0, 0, W, total);
+    ag.imageSmoothingEnabled = false;
+    ag.drawImage(img, 0, 0, W, PA_TOP, 0, 0, W, PA_TOP);
+    const mid = total - PA_TOP - PA_FIST;
+    if (mid > 0) ag.drawImage(img, 0, PA_MID_ROW, W, 1, 0, PA_TOP, W, mid);   // the middle row, repeated (not scaled: same pixels per row)
+    ag.drawImage(img, 0, PA_TOP + 1, W, PA_FIST, 0, PA_TOP + mid, W, PA_FIST);
     ctx.save();
     ctx.translate(sx, sy);
     ctx.rotate(Math.atan2(vy, vx) - Math.PI / 2);                // the arm sprite hangs down, so turn it to point at the block
-    let y = -3;
-    ctx.drawImage(img, 0, 0, W, PA_TOP, -W / 2, y, W, PA_TOP); y += PA_TOP;
-    const mid = Math.max(0, len - PA_TOP - PA_FIST);
-    for (let i = 0; i < mid; i++) { ctx.drawImage(img, 0, PA_MID_ROW, W, 1, -W / 2, y, W, 1); y += 1; }
-    ctx.drawImage(img, 0, PA_TOP + 1, W, PA_FIST, -W / 2, y, W, PA_FIST);
+    ctx.drawImage(armCanvas, -W / 2, -3);
     ctx.restore();
   }
   function drawPlayer(now) {

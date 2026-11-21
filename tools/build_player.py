@@ -90,7 +90,8 @@ def mouth_overlay(stage):
     return o
 mouth_overlay('half').save(f'{OUT}/mouth_half.png'); mouth_overlay('open').save(f'{OUT}/mouth_open.png')
 
-# ---- punch face: angry lids slanting down toward the nose over the eyes' inner corners ----
+# ---- punch face: angry eyes. The brows slope down toward the nose and a light lid covers the inner part of each eyeball ----
+BROW = hexc('b88a66')
 xs = sorted(set(x for x, _ in ball))
 groups, cur = [], [xs[0]]
 for x in xs[1:]:
@@ -100,10 +101,13 @@ groups.append(cur)                                                   # one x-ran
 def punch_face():
     o = overlay()
     for gi, g in enumerate(groups):
-        inner = g[-3:] if gi == 0 else g[:3]                         # toward the middle of the face
-        # the lid is lowest at the corner nearest the nose bridge
-        for x in inner: o.putpixel((x, eye_top), LINE)
-        for x in (inner[-2:] if gi == 0 else inner[:2]): o.putpixel((x, eye_top + 1), LINE)
+        outer_to_inner = g if gi == 0 else g[::-1]                   # walk from the outer corner toward the nose bridge
+        for i, x in enumerate(outer_to_inner):
+            o.putpixel((x, 7), SKIN)                                 # erase the flat brow ...
+        for i, x in enumerate(outer_to_inner):
+            o.putpixel((x, 7 + min(2, i // 2)), BROW)                # ... and redraw it sloping down: 2px high, 2px middle, 2px low
+        for x in outer_to_inner[2:]:                                 # light lid over the inner 4 columns of the top eyeball row
+            o.putpixel((x, eye_top), LID)
     return o
 punch_face().save(f'{OUT}/punch_face.png')
 
