@@ -33,27 +33,39 @@ for y in range(HY0 + 1, HY1): put(HX0 + 1, y, SHADE)          # shaded left side
 for x in range(HX0 + 1, HX1): put(x, HY1 - 1, SHADE)          # shaded under the chin
 for (x, y) in ((HX0, HY0), (HX1, HY0), (HX0, HY1), (HX1, HY1)): put(x, y, (0, 0, 0, 0))   # round the corners
 
-# ---- face (lower half of the head, like the reference) ----
-def eye(x0, mirror):
-    rows = [
-        [LASH] * 7,
-        [WEDGE, IRIS_D, IRIS, IRIS, IRIS, IRIS_D, WEDGE],
-        [WHITE, IRIS_L, PUPIL, PUPIL, PUPIL, IRIS, WHITE],
-        [WHITE, IRIS, PUPIL, PUPIL, PUPIL, IRIS, WHITE],
-        [WHITE, IRIS_D, IRIS, IRIS, IRIS, IRIS_D, WHITE],
-        [SKIN, WEDGE, IRIS_D, IRIS_D, IRIS_D, WEDGE, SKIN],
-    ]
+# ---- face: three-quarter view turned to the right (like the reference). The nearer (left) eye is wide, the far (right)
+# eye is narrower, the pupils look to the right, the nose and mouth sit right of centre and an ear shows on the left ----
+def draw_eye(x0, rows):
     for r, row in enumerate(rows):
-        row = row[::-1] if mirror else row
         for c, col in enumerate(row): put(x0 + c, 8 + r, col)
-eye(4, False); eye(15, True)
-put(3, 8, LASH); put(3, 9, LASH); put(22, 8, LASH); put(22, 9, LASH)      # lash flicks
-for x in range(4, 10): put(x, 6, BROW)
-for x in range(16, 22): put(x, 6, BROW)
-for x in (4, 5, 6, 19, 20, 21): put(x, 14, BLUSH)
-put(12, 15, NOSE); put(13, 15, NOSE); put(12, 16, SHADE) if False else None
-for x in range(10, 16): put(x, 17, MOUTH)                                 # smile
-put(9, 16, MOUTH); put(16, 16, MOUTH)
+NEAR = [
+    [LASH] * 7,
+    [WEDGE, WHITE, IRIS_D, IRIS, IRIS, IRIS_D, WEDGE],
+    [WHITE, WHITE, IRIS_L, PUPIL, PUPIL, IRIS, WHITE],
+    [WHITE, WHITE, IRIS, PUPIL, PUPIL, IRIS, WHITE],
+    [WHITE, WHITE, IRIS_D, IRIS, IRIS, IRIS_D, WHITE],
+    [SKIN, WEDGE, WEDGE, IRIS_D, IRIS_D, WEDGE, SKIN],
+]
+FAR = [
+    [LASH] * 5,
+    [WEDGE, IRIS_D, IRIS, IRIS, IRIS_D],
+    [WHITE, IRIS, PUPIL, PUPIL, IRIS],
+    [WHITE, IRIS, PUPIL, PUPIL, IRIS],
+    [WHITE, IRIS_D, IRIS, IRIS, IRIS_D],
+    [SKIN, WEDGE, IRIS_D, IRIS_D, WEDGE],
+]
+draw_eye(6, NEAR); draw_eye(16, FAR)
+put(5, 8, LASH); put(5, 9, LASH)                      # lash flick, near eye
+put(21, 8, LASH)                                      # lash flick, far eye
+for x in range(6, 12): put(x, 6, BROW)                # brows
+for x in range(16, 21): put(x, 6, BROW)
+for x in (5, 6, 7): put(x, 14, BLUSH)                 # blush: bigger on the near cheek
+for x in (19, 20): put(x, 14, BLUSH)
+put(14, 12, NOSE); put(15, 13, NOSE); put(15, 14, SHADE); put(14, 14, SHADE)   # nose pointing right
+for x in range(12, 18): put(x, 17, MOUTH)             # smile, nearer to the front edge
+put(11, 16, MOUTH); put(18, 16, MOUTH)
+for y in range(11, 15): put(3, y, SHADE); put(4, y, SHADE)   # ear on the near side of the head
+put(3, 12, EDGE); put(3, 13, EDGE); put(4, 12, EDGE)
 
 # ---- small body: neck, torso, shorts, legs ----
 rect(10, 21, 15, 21, SHADE)                                              # neck
