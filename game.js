@@ -602,20 +602,28 @@
   // so the text stays sharp at every zoom level; the size grows a little with the zoom.
   function drawName() {
     if (!playerName) return;
-    const size = Math.max(12, 5 * SCALE + 4);
+    const size = Math.max(11, 4 * SCALE + 3);
     const cx = Math.round((drawX + PW / 2 - camX) * SCALE);
-    const base = Math.round((drawY - camY - 5) * SCALE);        // 5 game pixels above the top of the head
+    const bottom = Math.round((drawY - camY - 2) * SCALE);   // pill sits just above the top of the head
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.font = 'bold ' + size + 'px "Trebuchet MS", Verdana, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = Math.max(3, Math.round(size / 4));
-    ctx.strokeStyle = 'rgba(10, 14, 30, .85)';                  // dark outline so it reads on sky, dirt or caves
-    ctx.strokeText(playerName, cx, base);
+    ctx.textBaseline = 'middle';
+    const padX = Math.round(size * 0.55), h = Math.round(size * 1.55);
+    const flagW = Math.round(size * 1.1), flagH = Math.round(size * 0.75), gap = Math.round(size * 0.4);
+    const tw = Math.ceil(ctx.measureText(playerName).width);
+    const w = padX + flagW + gap + tw + padX;
+    const x = Math.round(cx - w / 2), y = bottom - h;
+    ctx.fillStyle = 'rgba(10, 14, 30, .72)';                  // dark rounded pill
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, h / 2); else ctx.rect(x, y, w, h);
+    ctx.fill();
+    const fx = x + padX, fy = Math.round(y + (h - flagH) / 2);   // small flag badge (red over white)
+    ctx.fillStyle = '#e8312f'; ctx.fillRect(fx, fy, flagW, Math.ceil(flagH / 2));
+    ctx.fillStyle = '#fff';    ctx.fillRect(fx, fy + Math.ceil(flagH / 2), flagW, Math.floor(flagH / 2));
+    ctx.textAlign = 'left';
     ctx.fillStyle = '#fff';
-    ctx.fillText(playerName, cx, base);
+    ctx.fillText(playerName, fx + flagW + gap, y + h / 2 + 1);
     ctx.restore();
   }
 
