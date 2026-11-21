@@ -905,9 +905,9 @@
   function drawCursor() {
     const t = targetTile();
     const sx = t.tx * TILE - camX, sy = t.ty * TILE - camY;
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = t.inReach ? 'rgba(255,255,255,.9)' : 'rgba(255,90,90,.6)';
-    ctx.strokeRect(sx + 0.5, sy + 0.5, TILE - 1, TILE - 1);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = t.inReach ? '#ffd84a' : 'rgba(255,90,90,.75)';
+    ctx.strokeRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
   }
 
   function render(now, alpha) {
@@ -1062,13 +1062,12 @@
       for (let tx = cx0 - r; tx <= cx0 + r; tx++) {
         if (!inReach(tx, ty)) continue;
         const x = tx * TILE - camX, y = ty * TILE - camY;
-        ctx.fillStyle = 'rgba(255, 255, 255, .10)';
+        const empty = getTile(tx, ty) === 0;                          // free spots (where a block can go) get a lighter box
+        ctx.fillStyle = empty ? 'rgba(255, 255, 255, .10)' : 'rgba(255, 255, 255, .04)';
         ctx.fillRect(x, y, TILE, TILE);
-        ctx.fillStyle = 'rgba(255, 255, 255, .95)';                 // 1px edge wherever the next tile is out of reach
-        if (!inReach(tx, ty - 1)) ctx.fillRect(x, y, TILE, 1);
-        if (!inReach(tx, ty + 1)) ctx.fillRect(x, y + TILE - 1, TILE, 1);
-        if (!inReach(tx - 1, ty)) ctx.fillRect(x, y, 1, TILE);
-        if (!inReach(tx + 1, ty)) ctx.fillRect(x + TILE - 1, y, 1, TILE);
+        ctx.strokeStyle = empty ? 'rgba(255, 255, 255, .75)' : 'rgba(255, 255, 255, .45)';   // every block in reach has its own outline
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
       }
     }
     ctx.restore();
