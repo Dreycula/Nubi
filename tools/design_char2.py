@@ -23,49 +23,42 @@ def rect(x0, y0, x1, y1, c):
     for y in range(y0, y1 + 1):
         for x in range(x0, x1 + 1): put(x, y, c)
 
-# ---- head: 24 x 20, rounded corners, light top, shaded left/bottom ----
+# ---- head: 24 x 20, flat shaded. Like the reference cube head seen from the front-right: a big FRONT face (x1..18) with the
+# face on it, and a narrower SIDE panel (x19..24) in a darker skin tone with an ear. No 3D, just two flat planes. ----
 HX0, HX1, HY0, HY1 = 1, 24, 1, 20
+SIDE0 = 19
 rect(HX0, HY0, HX1, HY1, SKIN)
+rect(SIDE0, HY0 + 1, HX1 - 1, HY1 - 1, SHADE)                   # side panel
 for x in range(HX0, HX1 + 1): put(x, HY0, EDGE); put(x, HY1, EDGE)
 for y in range(HY0, HY1 + 1): put(HX0, y, EDGE); put(HX1, y, EDGE)
-for x in range(HX0 + 1, HX1): put(x, HY0 + 1, TOP)           # lit top
-for y in range(HY0 + 1, HY1): put(HX0 + 1, y, SHADE)          # shaded left side
-for x in range(HX0 + 1, HX1): put(x, HY1 - 1, SHADE)          # shaded under the chin
+for y in range(HY0 + 1, HY1): put(SIDE0 - 1, y, EDGE)         # crease where front meets side
+for x in range(HX0 + 1, SIDE0 - 1): put(x, HY0 + 1, TOP)      # lit top edge of the front face
+for x in range(SIDE0, HX1): put(x, HY0 + 1, SKIN)             # lit top edge of the side
+for x in range(HX0 + 1, SIDE0 - 1): put(x, HY1 - 1, SHADE)    # shade under the chin
 for (x, y) in ((HX0, HY0), (HX1, HY0), (HX0, HY1), (HX1, HY1)): put(x, y, (0, 0, 0, 0))   # round the corners
 
-# ---- face: three-quarter view turned to the right (like the reference). The nearer (left) eye is wide, the far (right)
-# eye is narrower, the pupils look to the right, the nose and mouth sit right of centre and an ear shows on the left ----
-def draw_eye(x0, rows):
+# ---- face on the front panel (centre x = 9.5): big teal eyes with lashes, small nose, small smile ----
+def eye(x0):
+    rows = [
+        [LASH] * 5,
+        [WEDGE, IRIS_D, IRIS, IRIS_D, WEDGE],
+        [WHITE, IRIS_L, PUPIL, PUPIL, IRIS],
+        [WHITE, IRIS, PUPIL, PUPIL, IRIS],
+        [WHITE, IRIS_D, IRIS, IRIS_D, WHITE],
+        [SKIN, WEDGE, IRIS_D, WEDGE, SKIN],
+    ]
     for r, row in enumerate(rows):
         for c, col in enumerate(row): put(x0 + c, 8 + r, col)
-NEAR = [
-    [LASH] * 7,
-    [WEDGE, WHITE, IRIS_D, IRIS, IRIS, IRIS_D, WEDGE],
-    [WHITE, WHITE, IRIS_L, PUPIL, PUPIL, IRIS, WHITE],
-    [WHITE, WHITE, IRIS, PUPIL, PUPIL, IRIS, WHITE],
-    [WHITE, WHITE, IRIS_D, IRIS, IRIS, IRIS_D, WHITE],
-    [SKIN, WEDGE, WEDGE, IRIS_D, IRIS_D, WEDGE, SKIN],
-]
-FAR = [
-    [LASH] * 5,
-    [WEDGE, IRIS_D, IRIS, IRIS, IRIS_D],
-    [WHITE, IRIS, PUPIL, PUPIL, IRIS],
-    [WHITE, IRIS, PUPIL, PUPIL, IRIS],
-    [WHITE, IRIS_D, IRIS, IRIS, IRIS_D],
-    [SKIN, WEDGE, IRIS_D, IRIS_D, WEDGE],
-]
-draw_eye(6, NEAR); draw_eye(16, FAR)
-put(5, 8, LASH); put(5, 9, LASH)                      # lash flick, near eye
-put(21, 8, LASH)                                      # lash flick, far eye
-for x in range(6, 12): put(x, 6, BROW)                # brows
-for x in range(16, 21): put(x, 6, BROW)
-for x in (5, 6, 7): put(x, 14, BLUSH)                 # blush: bigger on the near cheek
-for x in (19, 20): put(x, 14, BLUSH)
-put(14, 12, NOSE); put(15, 13, NOSE); put(15, 14, SHADE); put(14, 14, SHADE)   # nose pointing right
-for x in range(12, 18): put(x, 17, MOUTH)             # smile, nearer to the front edge
-put(11, 16, MOUTH); put(18, 16, MOUTH)
-for y in range(11, 15): put(3, y, SHADE); put(4, y, SHADE)   # ear on the near side of the head
-put(3, 12, EDGE); put(3, 13, EDGE); put(4, 12, EDGE)
+eye(4); eye(11)
+put(3, 8, LASH); put(3, 9, LASH); put(16, 8, LASH); put(16, 9, LASH)       # lash flicks
+for x in range(4, 9): put(x, 6, BROW)                                       # thin brows
+for x in range(11, 16): put(x, 6, BROW)
+for x in (4, 5): put(x, 14, BLUSH)
+for x in (14, 15): put(x, 14, BLUSH)
+put(9, 14, NOSE); put(10, 14, NOSE)                                         # tiny nose
+put(8, 16, MOUTH); put(11, 16, MOUTH); put(9, 17, MOUTH); put(10, 17, MOUTH)   # small smile
+# ear on the side panel
+rect(21, 10, 22, 14, SKIN); put(21, 10, EDGE); put(22, 10, EDGE); put(21, 14, EDGE); put(22, 14, EDGE); put(23, 11, EDGE); put(23, 12, EDGE); put(23, 13, EDGE); put(21, 12, SHADE)
 
 # ---- small body: neck, torso, shorts, legs ----
 rect(10, 21, 15, 21, SHADE)                                              # neck
