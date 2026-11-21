@@ -931,14 +931,13 @@
   const dlg = document.getElementById('invDialog');
   const dlgTitle = document.getElementById('dlgTitle'), dlgBody = document.getElementById('dlgBody');
   const dlgAmt = document.getElementById('dlgAmt'), dlgOk = document.getElementById('dlgOk'), dlgCancel = document.getElementById('dlgCancel');
-  const INV_COLS = 9, INV_MIN_SLOTS = 27;
+  const INV_COLS = 7, INV_MIN_SLOTS = 21;
   let invOpen = false;
 
-  function invMaxH() { return Math.min(250, Math.round(window.innerHeight * 0.5)); }
+  function invMaxH() { return Math.min(230, Math.round(window.innerHeight * 0.5)); }
   function setInvHeight(h, animate) {
-    invPanel.style.transition = animate ? 'height .18s ease-out' : 'none';
-    invPanel.style.height = Math.round(h) + 'px';
     invPanel.classList.toggle('shown', h > 8);
+    invPanel.style.height = h > 8 ? Math.round(h) + 'px' : '0px';
   }
   function openInventory() { invOpen = true; setInvHeight(invMaxH(), true); refreshInventory(); }
   function closeInventory() { invOpen = false; setInvHeight(0, true); invSearch.blur(); }
@@ -961,7 +960,9 @@
     if (!drag) return;
     const d = drag; drag = null;
     if (!d.moved) { toggleInventory(); return; }
-    if (invPanel.offsetHeight > invMaxH() * 0.35) openInventory(); else closeInventory();
+    const h = invPanel.offsetHeight;                       // dragged up = open, dragged down = close
+    if (h > d.h + 6) openInventory(); else if (h < d.h - 6) closeInventory();
+    else if (h > invMaxH() * 0.35) openInventory(); else closeInventory();
   };
   invHandle.addEventListener('pointerup', endDrag);
   invHandle.addEventListener('pointercancel', endDrag);
