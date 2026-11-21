@@ -118,6 +118,8 @@
     jobs.push(loadImage('p_arm', 'assets/player/parts/arm.png'));
     jobs.push(loadImage('p_blink_half', 'assets/player/blink_half.png'));
     jobs.push(loadImage('p_blink_closed', 'assets/player/blink_closed.png'));
+    jobs.push(loadImage('p_mouth_half', 'assets/player/mouth_half.png'));
+    jobs.push(loadImage('p_mouth_open', 'assets/player/mouth_open.png'));
     Object.values(BLOCKS).forEach(b => jobs.push(loadImage(b.img, 'assets/tiles/' + b.img + '.png')));
     for (let i = 1; i <= 4; i++) jobs.push(loadImage('crack' + i, 'assets/tiles/crack_' + i + '.png'));
     return Promise.all(jobs);
@@ -674,6 +676,20 @@
     return null;
   }
 
+  // Mouth: opens wide while in the air, and flaps while a chat message is showing (longer message = talks longer).
+  const TALK_PATTERN = [2, 1, 2, 0, 1, 2, 2, 0, 1, 0, 2, 1];      // 0 closed, 1 half, 2 open
+  function mouthOverlay(now) {
+    if (!player.onGround) return images.p_mouth_open;
+    if (bubble && !chatEl.classList.contains('open')) {
+      const talkMs = Math.min(3500, Math.max(900, bubble.text.length * 70));
+      const age = now - bubble.t;
+      if (age < talkMs) {
+        const v = TALK_PATTERN[Math.floor(age / 105) % TALK_PATTERN.length];
+        return v === 2 ? images.p_mouth_open : v === 1 ? images.p_mouth_half : null;
+      }
+    }
+    return null;
+  }
   function drawPlayer(now) {
     const img = currentFrame();
     const px = drawX - camX;
@@ -697,6 +713,8 @@
     ctx.drawImage(img, 0, 0);                       // body (legs animated), no arms
     const lids = blinkOverlay(now);
     if (lids) ctx.drawImage(lids, 0, 0);            // eyes closing, drawn over the face only
+    const mouthImg = mouthOverlay(now);
+    if (mouthImg) ctx.drawImage(mouthImg, 0, 0);    // mouth open (talking / jumping)
     drawArm(ARM_LEFT_X, player.armL);               // near arm: in front of the body
     ctx.restore();
   }
