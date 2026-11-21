@@ -98,3 +98,39 @@ def punch_face():
     for x in range(16, 18): o.putpixel((x, 10), LIDP)
     return o
 punch_face().save(f'{OUT}/punch_face.png')
+
+# ---- chunky punching arm (11 wide) in the body's own skin tones: shoulder rows, one repeatable middle row, fist rows ----
+D, B, H, S, K = body.getpixel((4, 9)), body.getpixel((7, 9)), body.getpixel((9, 8)), body.getpixel((4, 9)), body.getpixel((3, 17)) if False else (194, 156, 124, 255)
+PAL = {'d': D, 'b': B, 'h': H, 's': S, 'k': K}
+AW = 15                              # arm width: chunky, like the reference
+def body_row(gaps=(), hi=(1, 2), sh=(AW - 3, AW - 2)):
+    """edge pixel, a 2px light stripe on the left, base in the middle, a 2px shade stripe on the right, edge pixel"""
+    r = ['b'] * AW
+    r[0] = r[-1] = 'd'
+    for x in hi: r[x] = 'h'
+    for x in sh: r[x] = 's'
+    for x in gaps: r[x] = 'k'
+    return ''.join(r)
+def cap(top, rows):                  # rounded corners for the shoulder / fist ends
+    return ''.join('.' if i < rows or i >= AW - rows else ch for i, ch in enumerate(top))
+MID = body_row()
+ROWS = [
+    cap(body_row(hi=(), sh=()).replace('b', 'd'), 3),           # shoulder cap (row 0)
+    cap(body_row(), 1),
+    MID, MID, MID,
+    MID,                                                          # <- repeated to make the arm longer (row 5)
+    body_row(gaps=(5, 8, 11)),                                    # fist (9 rows): knuckle gaps, then a rounded bottom
+    body_row(gaps=(5, 8, 11)),
+    body_row(gaps=(5, 8, 11)),
+    body_row(),
+    body_row(hi=(), sh=(AW - 4, AW - 3, AW - 2)),
+    cap(body_row(hi=(), sh=(AW - 4, AW - 3, AW - 2)), 1),
+    cap(body_row(hi=(), sh=(AW - 4, AW - 3, AW - 2)), 2),
+    cap(body_row(hi=(), sh=()).replace('b', 'd'), 3),
+]
+ROWS = ROWS[:9] + ROWS[9:]
+arm = Image.new('RGBA', (AW, len(ROWS)), CLEAR)
+for y, row in enumerate(ROWS):
+    for x, ch in enumerate(row):
+        if ch != '.': arm.putpixel((x, y), PAL[ch])
+arm.save(f'{OUT}/punch_arm.png')
