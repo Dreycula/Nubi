@@ -99,14 +99,14 @@ html, body {
 }
 
 /* the player, built from the same body and arm sprites the game uses (whole-number zoom: 3x, or 2x on short screens) */
-.auth-sprite { position: relative; width: 78px; height: 114px; margin: 0 auto; }
+.auth-sprite { position: relative; width: 86px; height: 136px; margin: 0 auto; }
 .auth-sprite .spr { position: absolute; image-rendering: pixelated; image-rendering: crisp-edges; }
-.auth-sprite .body { left: 0; top: 0; width: 78px; height: 114px; z-index: 1; }
+.auth-sprite .body { left: 0; top: 0; width: 86px; height: 136px; z-index: 1; }
 .auth-sprite .arm-back { left: 54px; top: 66px; width: 18px; height: 30px; z-index: 0; }
 .auth-sprite .arm-front { left: 6px; top: 66px; width: 18px; height: 30px; z-index: 2; }
 @media (max-height: 640px) {
-  .auth-sprite { width: 52px; height: 76px; }
-  .auth-sprite .body { width: 52px; height: 76px; }
+  .auth-sprite { width: 43px; height: 68px; }
+  .auth-sprite .body { width: 43px; height: 68px; }
   .auth-sprite .arm-back { left: 36px; top: 44px; width: 12px; height: 20px; }
   .auth-sprite .arm-front { left: 4px; top: 44px; width: 12px; height: 20px; }
   .auth-card { padding-top: 16px; padding-bottom: 14px; }
@@ -376,3 +376,6 @@ body.auth-open #hud, body.auth-open #hudRight, body.auth-open #dock, body.auth-o
 }
 #toast.show { opacity: 1; }
 body.auth-open #toast { display: none; }
+
+/* the arms are part of the body now */
+.auth-sprite .arm-back, .auth-sprite .arm-front { display: none; }
