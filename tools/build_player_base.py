@@ -7,7 +7,7 @@ and the face overlays are blank except the punch brows.
 Usage: python3 tools/build_player_base.py
 """
 import os
-from PIL import Image, ImageOps
+from PIL import Image
 
 SRC = 'assets/characters/base2/source/original_43x68.png'
 OUT = 'assets/player'
@@ -15,7 +15,7 @@ os.makedirs(f'{OUT}/parts', exist_ok=True)
 CLEAR = (0, 0, 0, 0)
 BROW = (184, 138, 102, 255)
 
-body = ImageOps.mirror(Image.open(SRC).convert('RGBA'))   # the drawing faces LEFT; the game wants it facing right (mirrored, pixels untouched)
+body = Image.open(SRC).convert('RGBA')
 W, H = body.size
 px = body.load()
 BR = max(y for y in range(H) if any(px[x, y][3] for x in range(W)))      # bottom row of the feet
