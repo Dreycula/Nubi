@@ -4,7 +4,7 @@
   // ---------- Config ----------
   const TILE = 32;          // block size in pixels
   // Zoom = on-screen pixel scale. Whole numbers only, so the pixel art stays crisp. Mouse wheel changes it.
-  const ZOOM_LEVELS = [2, 4];   // the character is drawn at half scale (1 sprite pixel = 0.5 world px), so only even zooms keep it crisp
+  const ZOOM_LEVELS = [1, 2, 3, 4];
   const ZOOM_KEY = 'nubi-zoom';
   let SCALE = 2;
   try {
@@ -75,17 +75,13 @@
     return f;
   }
 
-  // Sprite: the user's 43x68 base body, used EXACTLY as drawn. The world (blocks etc.) is 32px per tile, so the sprite is
-  // drawn at half scale (SPK world px per sprite pixel): the character is 32 world px tall, one tile. Feet sit on the bottom
-  // edge of the hitbox.
-  const SPK = 0.5;
-  const SPR_W = 43, SPR_H = 68;     // sprite size in SPRITE pixels
-  const PW = 18, PH = 32;           // player hitbox (world px)
-  const SPR_OFF_X = 2, SPR_OFF_Y = 1;   // world px from the hitbox corner to the sprite's top-left corner
-  const HEAD_TOP_ROW = 1;              // world px from the sprite top to the top of the head (the name tag and bubbles sit above it)
+  // Sprite: 26x35 canvas, visible character is 20x32 starting at (3, 3). Feet sit on the bottom edge of the hitbox.
+  const SPR_W = 26, SPR_H = 38;
+  const PW = 20, PH = 32;           // player hitbox
+  const SPR_OFF_X = 3, SPR_OFF_Y = 6;   // the hitbox (20x32) sits on the feet; the big head sticks up 3px above it
+  const HEAD_TOP_ROW = 3;              // first row of the head in the sprite (the name tag and bubbles sit above it)
   // Arms: the 5x10 arm sprite is drawn on top of the body and rotated about its shoulder (top centre).
-  const ARM_LEFT_X = 2, ARM_RIGHT_X = 18, ARM_Y = 22;   // (old chibi arm bones, unused now: the arms are part of the body)
-  const SHOULDER_X = 28, SHOULDER_Y = 39;              // shoulder of the punching arm, in sprite pixels (arm on the side the character faces)
+  const ARM_LEFT_X = 2, ARM_RIGHT_X = 18, ARM_Y = 22;   // where each arm hangs on the 26x38 body
   const ARM_PIVOT_X = 3, ARM_PIVOT_Y = 1.5;           // shoulder point inside the arm sprite
   const ARM_SWING = 28, ARM_JUMP = 38;                  // max walking swing / jump spread, in degrees
 
@@ -778,13 +774,12 @@
     const e = punchExtension(now);
     const tcx = punchAnim.tx * TILE + TILE / 2 - camX, tcy = punchAnim.ty * TILE + TILE / 2 - camY;
     const ox = px - SPR_OFF_X, oy = py - SPR_OFF_Y;
-    // target in the character's own (mirrored) space, measured in SPRITE pixels (the arm is drawn inside the half-scale sprite)
-    const lx = (player.facing >= 0 ? tcx - ox : ox + SPR_W * SPK - tcx) / SPK, ly = (tcy - oy) / SPK;
-    const sx = SHOULDER_X, sy = SHOULDER_Y;
+    const lx = player.facing >= 0 ? tcx - ox : ox + SPR_W - tcx, ly = tcy - oy;   // target in the character's own (mirrored) space
+    const sx = ax + ARM_PIVOT_X, sy = ARM_Y + ARM_PIVOT_Y;
     const vx = lx - sx, vy = ly - sy;
     const dist = Math.hypot(vx, vy);
     const minLen = PA_TOP + PA_FIST + 2;
-    const reachLen = Math.max(minLen, Math.min(dist - 2, TILE * 2.6 / SPK));            // the fist ends at the block
+    const reachLen = Math.max(minLen, Math.min(dist - 2, TILE * 2.6));            // the fist ends at the block
     const len = Math.round(minLen + e * (reachLen - minLen));
     const img = images.p_punch_arm, W = img.width;
     // Build the whole arm unrotated on a small canvas first (shoulder + repeated middle row + fist), then draw that ONE
@@ -814,10 +809,9 @@
       ctx.translate(px - SPR_OFF_X, py - SPR_OFF_Y);
     } else {
       // mirror: the character is centred in its frame, so it stays over the hitbox
-      ctx.translate(px - SPR_OFF_X + SPR_W * SPK, py - SPR_OFF_Y);
+      ctx.translate(px - SPR_OFF_X + SPR_W, py - SPR_OFF_Y);
       ctx.scale(-1, 1);
     }
-    ctx.scale(SPK, SPK);                            // everything below is in sprite pixels
     const drawArm = (ax, deg) => {
       ctx.save();
       ctx.translate(ax + ARM_PIVOT_X, ARM_Y + ARM_PIVOT_Y);
@@ -825,6 +819,7 @@
       ctx.drawImage(ax === ARM_LEFT_X ? images.p_arm_near : images.p_arm_far, -ARM_PIVOT_X, -ARM_PIVOT_Y);   // the untouched arm sprite
       ctx.restore();
     };
+    drawArm(ARM_RIGHT_X, player.armR);              // far arm: behind the body, only sticks out past its edge
     ctx.drawImage(img, 0, 0);                       // body (legs animated), no arms
     const angry = now - punchAnim.t < PUNCH_MS + 150;
     const lids = angry ? null : blinkOverlay(now);
@@ -833,7 +828,8 @@
     const mouthImg = angry ? images.p_mouth_open : mouthOverlay(now);
     if (mouthImg) ctx.drawImage(mouthImg, 0, 0);    // mouth open (talking / jumping / punching)
     const punching = now - punchAnim.t < PUNCH_MS;
-    if (punching) drawArmReach(ARM_LEFT_X, now, px, py);   // the arm on the facing side reaches out to the block
+    if (punching) drawArmReach(ARM_LEFT_X, now, px, py);   // near arm reaches out to the block
+    else drawArm(ARM_LEFT_X, player.armL);               // near arm: in front of the body
     ctx.restore();
   }
 
