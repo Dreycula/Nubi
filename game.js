@@ -77,8 +77,8 @@
 
   // Sprite: 26x35 canvas, visible character is 20x32 starting at (3, 3). Feet sit on the bottom edge of the hitbox.
   const SPR_W = 26, SPR_H = 38;
-  const PW = 20, PH = 32;           // player hitbox
-  const SPR_OFF_X = 3, SPR_OFF_Y = 6;   // the hitbox (20x32) sits on the feet; the big head sticks up 3px above it
+  const PW = 14, PH = 26;           // player hitbox (smaller than a tile so you can slip through 1-block gaps)
+  const SPR_OFF_X = 6, SPR_OFF_Y = 12;   // hitbox sits on the feet; sprite is centred on it and the head sticks up above
   const HEAD_TOP_ROW = 3;              // first row of the head in the sprite (the name tag and bubbles sit above it)
   // Arms: the 5x10 arm sprite is drawn on top of the body and rotated about its shoulder (top centre).
   const ARM_LEFT_X = 2, ARM_RIGHT_X = 18, ARM_Y = 22;   // where each arm hangs on the 26x38 body
